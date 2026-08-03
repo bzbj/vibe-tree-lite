@@ -1,178 +1,139 @@
-# 🌳 Vibe Tree
+# Vibe Tree Lite · Sunlit Blocks
 
 [简体中文](README.md) | English
 
-**Every token your coding agent spends makes the tiny tree on your desktop grow.**
+A local token dashboard and multi-device sync service without Electron. Only a Node.js process stays in the background; the browser is used to view data. Token collection and GitHub cloud sync continue after the page is closed.
 
-Vibe Tree is a desktop token weather tree for AI coding. It reads local usage records from your coding agents and turns token spend, active rhythm, model preference, and streaks into a pixel bonsai you can keep on your desktop.
+![Vibe Tree Lite Sunlit Blocks desktop dashboard](docs/images/vibe-tree-lite-sunlit-blocks.png)
 
-It is not just a token dashboard. It is a small companion that makes your coding pace visible, collectible, and shareable.
+> Screenshots use synthetic demo data and contain no real account or token usage information.
 
-## Screenshots
+## What stays
 
-### Live Growth Dashboard
+- Local usage watchers for Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, and Kimi Code.
+- Today, recent 30-day, and all-time token totals.
+- A 30-day daily bar chart stacked by model.
+- Clickable model legends and chart blocks for highlighting, filtering, and inspecting each model's share.
+- Aggregate token sync between macOS and Windows through the same GitHub account.
+- The original Vibe Tree local history and cloud-sync protocol.
 
-Track total tokens, today's growth, level progress, agent sources, and the recent 7-day trend.
+Lite does not include the desktop tree, weather, levels, achievements, share cards, leaderboard page, or Electron/Chromium renderer processes.
 
-![Vibe Tree dashboard](docs/images/vibe-tree-dashboard.png)
+### Narrow-screen layout
 
-### Shareable Growth Report
+<img src="docs/images/vibe-tree-lite-sunlit-blocks-mobile.png" width="390" alt="Vibe Tree Lite Sunlit Blocks mobile dashboard">
 
-Export one of three visual templates with level, total tokens, favorite agent, a 7 × 24 hour heatmap, and a GitHub QR code.
+## Requirements
 
-![Vibe Tree share export](docs/images/vibe-tree-share-export.png)
+- Node.js 22 or newer
+- Git
+- macOS or Windows
 
-### Global Leaderboard
+## Install on macOS
 
-Opt into the leaderboard with GitHub. By default, only aggregated token ranking data is public. Usage preferences are shown only when the user explicitly enables them.
-
-![Vibe Tree leaderboard](docs/images/vibe-tree-leaderboard.png)
-
-## Highlights
-
-- **Desktop pixel tree**: always-on-top, draggable, scalable, lockable, and quiet on startup.
-- **Live token weather**: total tokens drive uncapped level growth; current token/min drives weather.
-- **Multi-agent sources**: Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, and Kimi Code.
-- **Source and model breakdowns**: inspect input, output, cache, and model distribution by agent.
-- **One tree across devices**: sign in with the same GitHub account to sync level, total tokens, achievements, device contributions, and aggregate model share across Windows and Mac.
-- **Recent 7-day chart**: filter token trends by source.
-- **Achievements**: unlock milestones for totals, peaks, streaks, time habits, and agent usage.
-- **Share image export**: choose from three templates and export a high-resolution PNG.
-- **Three UI themes**: day, night, and soft, aligned with the share-card visual system.
-- **Leaderboard privacy controls**: joining is optional; public usage preferences are opt-in.
-- **Chinese and English UI**: switch language in settings.
-
-## Quick Start
+Quit the Electron version of Vibe Tree first, then run:
 
 ```bash
+git clone https://github.com/bzbj/vibe-tree-lite.git
+cd vibe-tree-lite
 npm ci
-npm start
+npm run install:lite:mac
 ```
 
-On macOS, `npm start` builds `dist/Vibe Tree.app` locally, launches the menu bar and Dock under Vibe Tree's stable app identity, and keeps using existing command-line data when present. The local app uses ad-hoc signing and does not require an Apple Developer account.
+Open <http://127.0.0.1:47831>. The installer registers a per-user LaunchAgent so Lite starts at login. It does not delete the original app or existing token history.
 
-Development:
-
-```bash
-npm run dev
-```
-
-`npm run dev` launches with Electron's development identity. Use it for hot-reload debugging rather than everyday startup.
-
-Checks:
+Update to the latest version:
 
 ```bash
-npm run typecheck
-npm run build
-```
-
-If Electron downloads slowly from GitHub, temporarily use a mirror:
-
-```bash
-ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
-npm_config_electron_mirror=https://npmmirror.com/mirrors/electron/ \
+cd vibe-tree-lite
+git pull --ff-only
 npm ci
+npm run install:lite:mac
 ```
 
-Or save it in `.npmrc`:
-
-```ini
-electron_mirror=https://npmmirror.com/mirrors/electron/
-```
-
-## Supported Agents
-
-| Agent | Status | Default source |
-| --- | --- | --- |
-| Codex | ✅ | `~/.codex/sessions/**/*.jsonl` |
-| Claude Code | ✅ | `~/.claude/projects/**/*.jsonl` |
-| OpenClaw | ✅ | `~/.openclaw/agents/**/sessions/*.jsonl` |
-| Pi Agent | ✅ | `~/.pi/agent/sessions/**/*.jsonl` |
-| OpenCode | ✅ | `~/.local/share/opencode/opencode.db` (legacy `storage/message/**/*.json` remains supported) |
-| Gemini | ✅ | local Gemini session directory |
-| Hermes | ✅ | local Hermes session directory |
-| Kimi Code | ✅ | `~/.kimi-code/sessions/**/wire.jsonl` |
-
-Vibe Tree auto-detects the default paths after installation. You can customize source paths or disable sources in settings.
-
-## Data And Privacy
-
-Vibe Tree is local-first. By default, it does not upload code, prompts, filenames, paths, conversation logs, or complete hourly heatmaps.
-
-When "One tree, many devices" is enabled, it syncs only the growth data needed for the shared tree: token events, safe source categories, device id, coarse device summaries, achievement state, and daily token totals grouped by device/source/model. It does not upload individual session text, prompts, replies, local paths, or code files.
-
-See [PRIVACY.md](PRIVACY.md) for the full data-handling details.
-
-When joining the leaderboard, it syncs daily token totals, recent hourly token aggregates, and the local first-use date so the service can compute 24h, 7-day, 30-day, and all-time rankings. If "Public usage preferences" is enabled, it additionally syncs four aggregated fields:
-
-- Favorite agent
-- Favorite model
-- Favorite coding period
-- Peak token rate
-
-These fields are used only for leaderboard display.
-
-## Token Accounting
-
-```text
-Counted Token = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens
-```
-
-Some providers include cached input in `inputTokens`; Anthropic reports cache read / write separately. Vibe Tree counts total token consumption per request and counts cached input only once when it is already included in `inputTokens`.
-
-By default, statistics start from the installation day. Older history is ignored unless explicitly imported with environment variables.
-
-## Import History
-
-macOS / Linux:
+Remove the background service while preserving token data:
 
 ```bash
-VIBE_CODEX_IMPORT_HISTORY=today \
-VIBE_CLAUDE_IMPORT_HISTORY=today \
-VIBE_OPENCLAW_IMPORT_HISTORY=today \
-VIBE_OPENCODE_IMPORT_HISTORY=today \
-VIBE_KIMI_IMPORT_HISTORY=today \
-npm start
+npm run uninstall:lite:mac
 ```
 
-Windows PowerShell:
+## Install on Windows
+
+Run in PowerShell:
 
 ```powershell
-$env:VIBE_CODEX_IMPORT_HISTORY="today"
-$env:VIBE_CLAUDE_IMPORT_HISTORY="today"
-$env:VIBE_OPENCLAW_IMPORT_HISTORY="today"
-$env:VIBE_OPENCODE_IMPORT_HISTORY="today"
-$env:VIBE_KIMI_IMPORT_HISTORY="today"
-npm start
+git clone https://github.com/bzbj/vibe-tree-lite.git
+Set-Location .\vibe-tree-lite
+npm.cmd ci
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-windows.ps1
 ```
 
-## Cloud Sync And Leaderboard Service
+The installer places the Electron-free runtime under `%LOCALAPPDATA%\VibeTreeLite`, registers a current-user scheduled task, and creates a Start menu shortcut.
 
-The hosted app uses the configured Cloudflare Worker by default. For local testing or self-hosting:
+Update to the latest version:
+
+```powershell
+Set-Location .\vibe-tree-lite
+git pull --ff-only
+npm.cmd ci
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-windows.ps1
+```
+
+Remove the task and shortcut while preserving token data:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-lite-windows.ps1
+```
+
+## GitHub sync across devices
+
+1. Install Lite and open the local page on every device.
+2. Select **Use GitHub to sign in** and finish authorization in the browser.
+3. Use the same GitHub account on both devices. Lite automatically joins existing cloud data, or starts from the local device when none exists.
+4. When the top bar shows `GitHub · username`, select **Sync now** to check manually; background sync also runs on a schedule.
+
+Sync contains token aggregates grouped by day, device, source, and model. Code, prompts, replies, conversation text, and local paths are not uploaded. See [PRIVACY.md](PRIVACY.md) for details.
+
+## Supported sources
+
+| Agent | Default source |
+| --- | --- |
+| Codex | `~/.codex/sessions/**/*.jsonl` |
+| Claude Code | `~/.claude/projects/**/*.jsonl` |
+| OpenClaw | `~/.openclaw/agents/**/sessions/*.jsonl` |
+| Pi Agent | `~/.pi/agent/sessions/**/*.jsonl` |
+| OpenCode | `~/.local/share/opencode/opencode.db`, with legacy JSON support |
+| Gemini | local Gemini session directory |
+| Hermes | local Hermes session directory |
+| Kimi Code | `~/.kimi-code/sessions/**/wire.jsonl` |
+
+Available sources are detected automatically. Do not run Electron Vibe Tree and Vibe Tree Lite at the same time: both use the same watcher offsets and event file.
+
+## Run manually and validate
+
+To run in the current terminal without installing a background service:
 
 ```bash
-VIBE_TREE_LEADERBOARD_API_URL=https://your-worker.workers.dev npm start
+npm ci
+npm run build:lite
+npm run start:lite
 ```
 
-Worker template:
+Project checks:
 
-```text
-server/leaderboard-worker/
+```bash
+npm run test:lite
+npm run typecheck
 ```
 
-## Game Balance
+See [LITE.md](LITE.md) for port, data-directory, and self-hosted sync configuration.
 
-Growth, weather, and activity windows are configured in:
+## Security boundary
 
-```text
-public/assets/trees/vibe-bonsai/config/game-balance.json
-```
-
-It contains token level curves, weather thresholds, growth-stage thresholds, and activity-window parameters.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md).
+- HTTP listens only on `127.0.0.1`.
+- Mutating requests require a random page token and same-origin request.
+- Page APIs do not expose the GitHub bearer token, device ID, local paths, or other users' profiles.
+- Lite reuses the original Vibe Tree data directory by default; updates and uninstallers do not delete history.
 
 ## License
 
