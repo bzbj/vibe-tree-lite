@@ -5,7 +5,6 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const fixture = mkdtempSync(join(tmpdir(), "vibe-tree-lite-test-"));
-const port = 49000 + (process.pid % 999);
 const serverPath = fileURLToPath(new URL("../dist/lite-server/lite/server.js", import.meta.url));
 
 try {
@@ -29,14 +28,15 @@ try {
     env: {
       ...process.env,
       VIBE_TREE_USER_DATA_DIR: fixture,
-      VIBE_TREE_LITE_PORT: String(port),
+      VIBE_TREE_LITE_PORT: "0",
       VIBE_TREE_LITE_DISABLE_SYNC: "1",
       VIBE_TREE_LITE_DISABLE_WATCHERS: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
   const output = await waitForReady(child);
-  const base = `http://127.0.0.1:${port}`;
+  const base = output.match(/VIBE_TREE_LITE_READY (http:\/\/127\.0\.0\.1:\d+)/)?.[1];
+  assert(base, "ready URL");
   const health = await fetch(`${base}/api/health`).then((response) => response.json());
   const dashboard = await fetch(`${base}/api/dashboard?days=30`).then((response) => response.json());
   const html = await fetch(base).then((response) => response.text());
