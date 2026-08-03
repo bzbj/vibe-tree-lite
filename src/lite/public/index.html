@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
+    <meta name="color-scheme" content="light">
     <meta name="vibe-tree-token" content="__VIBE_TREE_CSRF_TOKEN__">
-    <title>Vibe Tree Lite</title>
+    <title>Vibe Tree Lite · 阳光积木</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
     <script src="/app.js" type="module"></script>
@@ -13,9 +13,12 @@
   <body>
     <main class="shell">
       <header class="topbar">
-        <a class="brand" href="/" aria-label="Vibe Tree Lite 首页">
+        <a class="brand" href="/" aria-label="Vibe Tree Lite · 阳光积木 首页">
           <span class="brand-mark" aria-hidden="true">V</span>
-          <span><strong>Vibe Tree</strong><small>Lite</small></span>
+          <span class="brand-copy">
+            <strong><span class="brand-base">Vibe Tree Lite</span><span class="brand-theme">· 阳光积木</span></strong>
+            <small>Sunlit Blocks</small>
+          </span>
         </a>
         <div class="toolbar">
           <span class="freshness" id="freshness">正在读取本地统计…</span>
@@ -70,21 +73,15 @@
         <p class="sr-only" id="model-filter-status" aria-live="polite"></p>
       </section>
 
-      <section class="panel rank-panel" aria-labelledby="rank-title">
-        <div class="panel-heading rank-heading">
-          <div>
-            <p class="eyebrow">LEADERBOARD</p>
-            <h2 id="rank-title">我的排名</h2>
-          </div>
-          <span class="sync-identity" id="sync-identity">尚未连接 GitHub</span>
+      <section class="connect-panel" id="auth-actions" aria-labelledby="connect-title" hidden>
+        <div>
+          <p class="eyebrow">GITHUB SYNC</p>
+          <h2 id="connect-title">连接 GitHub 同步</h2>
+          <p id="auth-note">登录后会自动查找云端小树；有就加入，没有就从本机开始。</p>
         </div>
-        <div class="rank-list" id="rank-list"></div>
-        <div class="auth-actions" id="auth-actions" hidden>
-          <p id="auth-note">这台设备尚未连接 GitHub 同步。</p>
-          <button class="button button-wide" data-action="connect-existing" type="button">加入已有同步</button>
-          <button class="text-button" data-action="connect-new" type="button">这是第一台设备：新建同步</button>
+        <div class="connect-actions">
+          <button class="button button-wide" id="github-connect-button" data-action="connect-github" type="button">使用 GitHub 登录</button>
         </div>
-        <p class="privacy-note">只展示自己的排名数字；本页不加载其他用户资料。</p>
       </section>
 
       <footer>

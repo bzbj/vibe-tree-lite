@@ -86,9 +86,10 @@ removed; the Vibe Tree token data directory is still preserved.
    `npm run package:lite` to the second device.
 2. When running a copied package manually, run `node lite/server.js` from the
    packaged `dist/vibe-tree-lite` directory.
-3. Open the local page and choose **加入已有同步**.
-4. Complete GitHub login in the browser. The original OAuth callback and cloud
-   pull/push protocol are reused.
+3. Open the local page and choose **使用 GitHub 登录**.
+4. Complete GitHub login in the browser. Lite reuses the original OAuth
+   callback and automatically joins an existing cloud tree or starts one from
+   the local data when the account has no remote tree yet.
 
 The packaged runtime has no npm dependencies and does not contain Electron or
 `node_modules`; it requires Node.js 22 or newer.

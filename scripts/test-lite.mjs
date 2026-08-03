@@ -47,15 +47,22 @@ try {
     method: "POST",
     headers: { Origin: base, "X-Vibe-Tree-Token": token ?? "" },
   }).then((response) => response.json());
+  const disabledGithubConnect = await fetch(`${base}/api/connect-github`, {
+    method: "POST",
+    headers: { Origin: base, "X-Vibe-Tree-Token": token ?? "" },
+  }).then((response) => response.json());
 
   assert(health.ok === true, "health endpoint");
   assert(dashboard.totals.today === 2500, "today total");
   assert(dashboard.topModel === "gpt-5.6", "top model");
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
-  assert(html.includes("Vibe Tree Lite") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "dashboard HTML and CSRF injection");
-  assert(html.includes('id="rank-list"') && html.includes('id="auth-actions"'), "leaderboard and GitHub sync controls");
-  assert(css.includes("@keyframes dopamine-pop") && app.includes("is-popping"), "dopamine palette click feedback assets");
+  assert(html.includes("Vibe Tree Lite · 阳光积木") && html.includes("Sunlit Blocks") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "Sunlit Blocks dashboard branding and CSRF injection");
+  assert(!html.includes('id="rank-list"') && !html.includes("LEADERBOARD") && html.includes('data-action="connect-github"'), "single GitHub connection control without leaderboard");
+  assert(app.includes("GitHub · ${username}"), "GitHub username in the top sync state");
+  assert(app.includes('mutate("/api/connect-github"'), "GitHub connection action");
+  assert(css.includes(".bar-segment:active") && css.includes("transform: scale(0.97)") && !css.includes("dopamine-pop") && !app.includes("is-popping"), "restrained tile click feedback assets");
   assert(disabledSync.error === "当前以禁用同步模式运行。", "disabled sync returns a bounded API error");
+  assert(disabledGithubConnect.error === "当前以禁用同步模式运行。", "disabled GitHub connect returns a bounded API error");
   child.kill("SIGTERM");
   await new Promise((resolve) => child.once("close", resolve));
   if (process.platform !== "win32") {

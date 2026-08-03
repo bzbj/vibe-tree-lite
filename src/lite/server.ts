@@ -98,6 +98,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname.startsWith("/api/")) {
       if (!validMutation(request)) return sendJson(response, 403, { error: "请求校验失败，请刷新页面后重试。" });
       if (url.pathname === "/api/sync") return sendJson(response, 200, await syncAll());
+      if (url.pathname === "/api/connect-github") return sendJson(response, 200, await connectGitHub());
       if (url.pathname === "/api/connect-existing") return sendJson(response, 200, await connectExisting());
       if (url.pathname === "/api/connect-new") return sendJson(response, 200, await connectNew());
       return sendJson(response, 404, { error: "Not found" });
@@ -181,6 +182,33 @@ async function connectExisting() {
   }
   leaderboardCache = undefined;
   return { ok: !status.error, error: status.error };
+}
+
+async function connectGitHub() {
+  if (DISABLE_SYNC) return { error: "当前以禁用同步模式运行。" };
+
+  let mode: "existing" | "new" = "existing";
+  let status = await service.joinCloudTree();
+  const noRemoteTree = MAIN_TEXT[store.ledger.settings.language]?.cloudSyncNoRemoteTree
+    ?? MAIN_TEXT["zh-CN"].cloudSyncNoRemoteTree;
+
+  if (status.error === noRemoteTree) {
+    mode = "new";
+    if (!store.ledger.settings.treeStartMode) store.updateSettings({ treeStartMode: "new" });
+    status = await service.enableCloudSync();
+  } else if (!status.error) {
+    store.updateSettings({ treeStartMode: "cloud" });
+  }
+
+  if (!status.error) restartWatchers();
+  leaderboardCache = undefined;
+  const cloud = service.cloudStatus();
+  return {
+    ok: !status.error,
+    error: status.error,
+    mode: status.error ? undefined : mode,
+    profile: cloud.profile ? { username: cloud.profile.username, avatarUrl: cloud.profile.avatarUrl } : undefined,
+  };
 }
 
 async function connectNew() {
