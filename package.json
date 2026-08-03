@@ -9,6 +9,12 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc -p tsconfig.electron.json && node scripts/copy-preload.mjs && vite build",
+    "build:lite": "tsc -p tsconfig.lite.json && node scripts/copy-lite-assets.mjs",
+    "start:lite": "node scripts/start-lite.mjs",
+    "test:lite": "npm run build:lite && node scripts/test-lite.mjs",
+    "package:lite": "npm run build:lite && node scripts/package-lite.mjs",
+    "install:lite:mac": "npm run build:lite && node scripts/install-lite-macos.mjs",
+    "uninstall:lite:mac": "node scripts/uninstall-lite-macos.mjs",
     "package:mac": "npm run build && node scripts/package-macos-app.mjs",
     "edit:achievements": "node scripts/achievement-copy-editor.mjs",
     "smoke:electron": "node scripts/smoke-electron.mjs",

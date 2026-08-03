@@ -49,6 +49,14 @@ npm ci
 npm start
 ```
 
+如果只需要 token 统计、排行榜/多设备同步和按模型的每日柱状图，可使用不启动 Electron 的
+[Vibe Tree Lite](LITE.md)：
+
+```bash
+npm run build:lite
+npm run start:lite
+```
+
 在 macOS 上，`npm start` 会在本机生成 `dist/Vibe Tree.app`，使用固定的 Vibe Tree 应用身份启动菜单栏与 Dock，并自动沿用已有的命令行版本数据。这个本机构建使用 ad-hoc 签名，不需要 Apple Developer 账号。
 
 开发模式：

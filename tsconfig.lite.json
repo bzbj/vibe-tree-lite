@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist/lite-server",
+    "rootDir": "src",
+    "sourceMap": true
+  },
+  "include": [
+    "src/lite/**/*.ts",
+    "src/electron/agentSessionWatchers.ts",
+    "src/electron/codexSessionWatcher.ts",
+    "src/electron/i18n.ts",
+    "src/electron/leaderboard.ts",
+    "src/shared/**/*.ts"
+  ]
+}
