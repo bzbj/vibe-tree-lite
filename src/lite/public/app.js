@@ -1,9 +1,10 @@
 const token = document.querySelector('meta[name="vibe-tree-token"]').content;
-const palette = ["#174f3a", "#2c8562", "#47b989", "#7bcba5", "#d4a64c", "#d87956", "#846ca7", "#7b8680"];
+const palette = ["#F72585", "#6D28D9", "#00A8E8", "#FFB703", "#20C997", "#FF6B35", "#3A86FF", "#B5179E"];
 const rangeLabels = { "24h": "24H", "7d": "7天", "30d": "30天", all: "全部" };
 let toastTimer;
 let dashboardData;
 let selectedModel;
+let pressedSegmentKey;
 
 document.querySelector("#sync-button").addEventListener("click", () => mutate("/api/sync", "同步完成"));
 document.querySelector("#clear-model").addEventListener("click", () => selectModel());
@@ -171,9 +172,11 @@ function renderChart(days, context) {
       const value = day.models[model] || 0;
       if (!value) continue;
       const segment = document.createElement("button");
+      const segmentKey = `${day.date}\u0000${model}`;
       segment.type = "button";
       segment.className = "bar-segment";
       segment.classList.toggle("is-selected", model === selectedModel);
+      segment.classList.toggle("is-popping", segmentKey === pressedSegmentKey);
       segment.style.flexGrow = String(value);
       segment.style.background = colors.get(model);
       segment.setAttribute("aria-pressed", String(model === selectedModel));
@@ -184,7 +187,7 @@ function renderChart(days, context) {
       segment.addEventListener("pointerleave", hideTooltip);
       segment.addEventListener("focus", () => showTooltipForElement(segment, tooltipData));
       segment.addEventListener("blur", hideTooltip);
-      segment.addEventListener("click", () => selectModel(model));
+      segment.addEventListener("click", () => selectModel(model, segmentKey));
       bar.append(segment);
     }
     const label = document.createElement("span");
@@ -196,10 +199,12 @@ function renderChart(days, context) {
   });
 }
 
-function selectModel(model) {
+function selectModel(model, segmentKey) {
+  pressedSegmentKey = segmentKey;
   selectedModel = model && model !== selectedModel ? model : undefined;
   setText("model-filter-status", selectedModel ? `已高亮 ${selectedModel}` : "已显示全部模型");
   if (dashboardData) render(dashboardData);
+  pressedSegmentKey = undefined;
 }
 
 function showTooltip(x, y, data) {
