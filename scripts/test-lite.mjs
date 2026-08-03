@@ -40,15 +40,24 @@ try {
   const health = await fetch(`${base}/api/health`).then((response) => response.json());
   const dashboard = await fetch(`${base}/api/dashboard?days=30`).then((response) => response.json());
   const html = await fetch(base).then((response) => response.text());
+  const token = html.match(/meta name="vibe-tree-token" content="([^"]+)"/)?.[1];
+  const disabledSync = await fetch(`${base}/api/sync`, {
+    method: "POST",
+    headers: { Origin: base, "X-Vibe-Tree-Token": token ?? "" },
+  }).then((response) => response.json());
 
   assert(health.ok === true, "health endpoint");
   assert(dashboard.totals.today === 2500, "today total");
   assert(dashboard.topModel === "gpt-5.6", "top model");
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
   assert(html.includes("Vibe Tree Lite") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "dashboard HTML and CSRF injection");
+  assert(html.includes('id="rank-list"') && html.includes('id="auth-actions"'), "leaderboard and GitHub sync controls");
+  assert(disabledSync.error === "当前以禁用同步模式运行。", "disabled sync returns a bounded API error");
   child.kill("SIGTERM");
-  await new Promise((resolve) => child.once("exit", resolve));
-  assert(!existsSync(join(fixture, "runtime-lite.lock")), "runtime lock cleanup");
+  await new Promise((resolve) => child.once("close", resolve));
+  if (process.platform !== "win32") {
+    assert(!existsSync(join(fixture, "runtime-lite.lock")), "runtime lock cleanup");
+  }
   console.log(`Lite smoke test passed (${output.trim()})`);
 } finally {
   rmSync(fixture, { recursive: true, force: true });

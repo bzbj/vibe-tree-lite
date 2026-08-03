@@ -6,6 +6,7 @@
     <meta name="color-scheme" content="light dark">
     <meta name="vibe-tree-token" content="__VIBE_TREE_CSRF_TOKEN__">
     <title>Vibe Tree Lite</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
     <script src="/app.js" type="module"></script>
   </head>
@@ -18,84 +19,85 @@
         </a>
         <div class="toolbar">
           <span class="freshness" id="freshness">正在读取本地统计…</span>
+          <div class="sync-state" id="sync-state" role="status" aria-live="polite">
+            <span class="status-dot"></span>
+            <span>正在连接服务</span>
+          </div>
           <button class="button" id="sync-button" type="button">立即同步</button>
         </div>
       </header>
 
-      <section class="hero" aria-labelledby="page-title">
-        <div>
-          <p class="eyebrow">TOKEN PULSE · 最近 30 天</p>
-          <h1 id="page-title">只留下使用量。</h1>
-          <p class="lede">本机采集，多设备同步；没有树、等级和常驻渲染窗口。</p>
-        </div>
-        <div class="sync-state" id="sync-state" role="status" aria-live="polite">
-          <span class="status-dot"></span>
-          <span>正在连接服务</span>
-        </div>
-      </section>
-
       <section class="metric-grid" aria-label="使用量摘要">
         <article class="metric-card metric-primary">
-          <span>今日 Token</span>
+          <span id="today-label">今日 Token</span>
           <strong id="today-total">—</strong>
           <small id="today-date">本地时区</small>
         </article>
         <article class="metric-card">
-          <span>30 日 Token</span>
+          <span id="period-label">30 日 Token</span>
           <strong id="period-total">—</strong>
-          <small>包含已同步设备</small>
+          <small id="period-note">包含已同步设备</small>
         </article>
         <article class="metric-card">
-          <span>常用模型</span>
+          <span id="model-label">常用模型</span>
           <strong class="metric-text" id="top-model">—</strong>
-          <small>按 30 日消耗量</small>
+          <small id="model-note">按 30 日消耗量</small>
         </article>
         <article class="metric-card">
-          <span>同步设备</span>
+          <span id="context-label">同步设备</span>
           <strong id="device-count">—</strong>
-          <small id="watcher-count">等待 watcher</small>
+          <small id="context-note">等待 watcher</small>
         </article>
       </section>
 
-      <div class="content-grid">
-        <section class="panel chart-panel" aria-labelledby="chart-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">DAILY / MODEL</p>
-              <h2 id="chart-title">每日模型消耗</h2>
-            </div>
+      <section class="panel chart-panel" aria-labelledby="chart-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">DAILY / MODEL</p>
+            <h2 id="chart-title">每日模型消耗</h2>
+          </div>
+          <div class="chart-summary">
             <span class="chart-total" id="all-total">累计 —</span>
+            <button class="clear-filter" id="clear-model" type="button" hidden>显示全部模型</button>
           </div>
-          <div class="legend" id="legend" aria-label="模型图例"></div>
-          <div class="chart-wrap">
-            <div class="y-axis" aria-hidden="true"><span id="axis-max">—</span><span id="axis-mid">—</span><span>0</span></div>
-            <div class="chart" id="chart" role="img" aria-label="最近 30 天每日 Token 消耗，按模型堆叠"></div>
-          </div>
-          <div class="empty-state" id="empty-state" hidden>这段时间还没有可显示的 Token 记录。</div>
-        </section>
+        </div>
+        <div class="legend" id="legend" aria-label="模型图例与筛选"></div>
+        <div class="chart-wrap">
+          <div class="y-axis" aria-hidden="true"><span id="axis-max">—</span><span id="axis-mid">—</span><span>0</span></div>
+          <div class="chart" id="chart" role="group" aria-label="最近 30 天每日 Token 消耗，按模型堆叠"></div>
+        </div>
+        <div class="empty-state" id="empty-state" hidden>这段时间还没有可显示的 Token 记录。</div>
+        <p class="sr-only" id="model-filter-status" aria-live="polite"></p>
+      </section>
 
-        <aside class="panel rank-panel" aria-labelledby="rank-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">LEADERBOARD</p>
-              <h2 id="rank-title">我的排名</h2>
-            </div>
+      <section class="panel rank-panel" aria-labelledby="rank-title">
+        <div class="panel-heading rank-heading">
+          <div>
+            <p class="eyebrow">LEADERBOARD</p>
+            <h2 id="rank-title">我的排名</h2>
           </div>
-          <div class="rank-list" id="rank-list"></div>
-          <div class="auth-actions" id="auth-actions" hidden>
-            <p>这台设备尚未连接 GitHub 同步。</p>
-            <button class="button button-wide" data-action="connect-existing" type="button">加入已有同步</button>
-            <button class="text-button" data-action="connect-new" type="button">这是第一台设备：新建同步</button>
-          </div>
-          <p class="privacy-note">只展示自己的排名数字；本页不加载其他用户资料。</p>
-        </aside>
-      </div>
+          <span class="sync-identity" id="sync-identity">尚未连接 GitHub</span>
+        </div>
+        <div class="rank-list" id="rank-list"></div>
+        <div class="auth-actions" id="auth-actions" hidden>
+          <p id="auth-note">这台设备尚未连接 GitHub 同步。</p>
+          <button class="button button-wide" data-action="connect-existing" type="button">加入已有同步</button>
+          <button class="text-button" data-action="connect-new" type="button">这是第一台设备：新建同步</button>
+        </div>
+        <p class="privacy-note">只展示自己的排名数字；本页不加载其他用户资料。</p>
+      </section>
 
       <footer>
         <span id="service-version">Vibe Tree Lite</span>
         <span>仅监听 127.0.0.1</span>
       </footer>
     </main>
+    <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden>
+      <div class="tooltip-heading"><span class="tooltip-swatch"></span><strong id="tooltip-model"></strong></div>
+      <span class="tooltip-date" id="tooltip-date"></span>
+      <strong class="tooltip-value" id="tooltip-value"></strong>
+      <span class="tooltip-share" id="tooltip-share"></span>
+    </div>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>
