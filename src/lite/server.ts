@@ -29,6 +29,7 @@ const DATA_DIR = process.env.VIBE_TREE_USER_DATA_DIR?.trim() || defaultDataDir()
 const STATIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
 const DISABLE_SYNC = process.env.VIBE_TREE_LITE_DISABLE_SYNC === "1";
 const DISABLE_WATCHERS = process.env.VIBE_TREE_LITE_DISABLE_WATCHERS === "1";
+const MAX_SYNC_RESPONSE_CHARS = 16 * 1024 * 1024;
 const csrfToken = randomBytes(24).toString("base64url");
 const store = new LiteStore(DATA_DIR);
 const watcherStatus = emptyUsageStatus();
@@ -40,6 +41,7 @@ let dataVersion = 0;
 let lockHeld = false;
 let usageSyncTimer: ReturnType<typeof setTimeout> | undefined;
 let shuttingDown = false;
+let syncAllPromise: ReturnType<typeof performSyncAll> | undefined;
 
 const service = createLeaderboardService({
   apiUrl: (process.env.VIBE_TREE_LEADERBOARD_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, ""),
@@ -122,10 +124,9 @@ async function dashboardPayload(days: number) {
     ? localDashboardCache.value
     : store.dashboard(normalizedDays);
   localDashboardCache = { dataVersion, days: normalizedDays, value: local };
-  const [leaderboards, cloud] = await Promise.all([
-    getLeaderboards(),
-    Promise.resolve(service.cloudStatus()),
-  ]);
+  // The dashboard is a local status/read path. Keep it responsive even when
+  // the optional cloud service or proxy is unavailable.
+  const cloud = service.cloudStatus();
   return {
     generatedAt: new Date().toISOString(),
     version: VERSION,
@@ -143,22 +144,27 @@ async function dashboardPayload(days: number) {
       deviceCount: cloud.devices?.length ?? 0,
       error: cloud.error,
     },
-    leaderboard: summarizeLeaderboards(leaderboards),
+    leaderboard: summarizeLeaderboards(leaderboardCache?.value),
     watchers: summarizeWatchers(watcherStatus),
   };
 }
 
 async function syncAll() {
+  if (!syncAllPromise) {
+    syncAllPromise = performSyncAll().finally(() => { syncAllPromise = undefined; });
+  }
+  return await syncAllPromise;
+}
+
+async function performSyncAll() {
   if (DISABLE_SYNC) return { error: "当前以禁用同步模式运行。" };
   const cloud = await service.syncCloudTree({ force: true, pullFirst: true });
   const leaderboard = await service.syncUsage({ force: true });
   leaderboardCache = undefined;
-  const collection = await getLeaderboards(true);
   return {
     ok: !cloud.error && !leaderboard.error,
     cloud: { lastSyncedAt: cloud.lastSyncedAt, uploaded: cloud.lastUploadedCount, downloaded: cloud.lastDownloadedCount, error: cloud.error },
     leaderboard: { lastSyncedAt: leaderboard.lastSyncedAt, error: leaderboard.error },
-    ranks: summarizeLeaderboards(collection),
   };
 }
 
@@ -293,6 +299,7 @@ function serveStatic(pathname: string, response: http.ServerResponse, headOnly: 
     "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
     "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
     "/styles.css": { file: "styles.css", type: "text/css; charset=utf-8" },
+    "/favicon.svg": { file: "favicon.svg", type: "image/svg+xml; charset=utf-8" },
   };
   const asset = files[pathname];
   if (!asset) return sendText(response, 404, "Not found");
@@ -359,13 +366,21 @@ async function requestJsonWithFetch<T = unknown>(url: string, options: Leaderboa
       signal: controller.signal,
     });
     const text = await response.text();
-    if (text.length > 2 * 1024 * 1024) throw new Error("排行榜响应过大");
+    if (text.length > MAX_SYNC_RESPONSE_CHARS) throw new Error("同步服务响应过大");
     const value = text ? JSON.parse(text) : {};
     if (!response.ok) {
       const message = typeof value?.error === "string" ? value.error : `请求失败 (${response.status})`;
       throw new Error(message);
     }
     return value as T;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("同步服务请求超时，请检查网络或代理配置。", { cause: error });
+    }
+    if (error instanceof TypeError && error.message === "fetch failed") {
+      throw new Error("无法连接同步服务，请检查网络或代理配置。", { cause: error });
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
