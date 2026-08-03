@@ -40,6 +40,8 @@ try {
   const health = await fetch(`${base}/api/health`).then((response) => response.json());
   const dashboard = await fetch(`${base}/api/dashboard?days=30`).then((response) => response.json());
   const html = await fetch(base).then((response) => response.text());
+  const css = await fetch(`${base}/styles.css`).then((response) => response.text());
+  const app = await fetch(`${base}/app.js`).then((response) => response.text());
   const token = html.match(/meta name="vibe-tree-token" content="([^"]+)"/)?.[1];
   const disabledSync = await fetch(`${base}/api/sync`, {
     method: "POST",
@@ -52,6 +54,7 @@ try {
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
   assert(html.includes("Vibe Tree Lite") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "dashboard HTML and CSRF injection");
   assert(html.includes('id="rank-list"') && html.includes('id="auth-actions"'), "leaderboard and GitHub sync controls");
+  assert(css.includes("@keyframes dopamine-pop") && app.includes("is-popping"), "dopamine palette click feedback assets");
   assert(disabledSync.error === "当前以禁用同步模式运行。", "disabled sync returns a bounded API error");
   child.kill("SIGTERM");
   await new Promise((resolve) => child.once("close", resolve));
