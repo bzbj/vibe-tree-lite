@@ -1,186 +1,139 @@
-# 🌳 Vibe Tree
+# Vibe Tree Lite · 阳光积木
 
 简体中文 | [English](README.en.md)
 
-**你的 coding agent 每消耗一个 token，桌面上的小树就长一点。**
+一个不启动 Electron 的本地 Token 统计与多设备同步服务。后台只运行 Node.js，浏览器仅用于查看数据；关掉网页后，Token 采集和 GitHub 云同步仍会继续。
 
-Vibe Tree 是一个桌面常驻的 token 天气树。它会读取本地 AI coding agent 的使用记录，把 token 消耗、活跃节奏、模型偏好和连续使用，变成一棵可以养成的像素小树。
+![Vibe Tree Lite 阳光积木桌面版](docs/images/vibe-tree-lite-sunlit-blocks.png)
 
-它不是传统的 token dashboard，而是把「我今天到底写了多少、什么时候最上头、主要靠哪个 agent」变成一个能看见、能分享、也能轻轻炫耀的桌面体验。
+> 截图使用合成演示数据，不包含真实账号或 Token 用量。
 
-## 产品截图
+## 保留了什么
 
-### 实时成长面板
+- Codex、Claude Code、OpenClaw、Pi Agent、OpenCode、Gemini、Hermes 和 Kimi Code 的本地用量采集。
+- 今日、最近 30 日和累计 Token 汇总。
+- 最近 30 天的每日柱状图，并按模型堆叠显示。
+- 点击模型图例或柱状图方块进行高亮、筛选和查看占比。
+- 使用同一个 GitHub 账号，在 macOS 与 Windows 之间同步聚合后的 Token 数据。
+- 与原版 Vibe Tree 相同的本地历史和云同步协议。
 
-查看累计 Token、今日成长、等级进度、数据来源和最近 7 天使用趋势。
+Lite 不包含桌面树、天气、等级、成就、分享卡片、排行榜页面或 Electron/Chromium 渲染进程。
 
-![Vibe Tree dashboard](docs/images/vibe-tree-dashboard.png)
+### 手机窄屏
 
-### 分享成长图
+<img src="docs/images/vibe-tree-lite-sunlit-blocks-mobile.png" width="390" alt="Vibe Tree Lite 阳光积木手机版">
 
-一键生成 3 套分享卡片，展示等级、累计 Token、最常用 Agent、7 × 24 小时热力图和 GitHub 二维码。
+## 环境要求
 
-![Vibe Tree share export](docs/images/vibe-tree-share-export.png)
+- Node.js 22 或更新版本
+- Git
+- macOS 或 Windows
 
-### 全球排行榜
+## macOS 安装
 
-可选加入排行榜。默认只公开聚合后的 token 排名；如果用户开启使用偏好公开，才展示最常用 Agent、常用模型、偏爱时段和 token 峰值。
+先退出原版 Electron Vibe Tree，再执行：
 
-![Vibe Tree leaderboard](docs/images/vibe-tree-leaderboard.png)
+```bash
+git clone https://github.com/bzbj/vibe-tree-lite.git
+cd vibe-tree-lite
+npm ci
+npm run install:lite:mac
+```
 
-## 核心功能
+打开 <http://127.0.0.1:47831>。安装器会注册当前用户的 LaunchAgent，登录系统后自动启动 Lite；不会删除原版应用或历史 Token 数据。
 
-- **桌面像素树**：常驻桌面，支持置顶、拖动、缩放、锁定位置和静默启动。
-- **实时 token 天气**：累计 Token 决定无上限成长等级，当前 token/min 决定天气状态。
-- **多 Agent 数据源**：支持 Codex、Claude Code、OpenClaw、Pi Agent、OpenCode、Gemini、Hermes 和 Kimi Code。
-- **来源与模型统计**：按 agent 查看 input / output / cache，展开后可查看模型占比。
-- **多设备同养一棵树**：登录同一个 GitHub 账号后，Windows 和 Mac 可以同步等级、累计 Token、成就、设备贡献和聚合模型占比。
-- **最近 7 天图表**：按来源筛选近期 token 使用趋势。
-- **成就系统**：记录累计消耗、峰值时刻、连续活跃、时间偏好和 agent 使用里程碑。
-- **分享图导出**：从 3 套视觉模板里选择，一键导出高清 PNG。
-- **三套 UI 主题**：白天、黑夜、柔和，和分享卡片视觉保持一致。
-- **排行榜与隐私控制**：GitHub 登录后可加入全球排行榜，使用偏好公开始终由用户主动开启。
-- **中英文界面**：设置面板中可一键切换语言。
+更新到最新版：
 
-## 快速开始
+```bash
+cd vibe-tree-lite
+git pull --ff-only
+npm ci
+npm run install:lite:mac
+```
+
+卸载后台服务但保留 Token 数据：
+
+```bash
+npm run uninstall:lite:mac
+```
+
+## Windows 安装
+
+在 PowerShell 中执行：
+
+```powershell
+git clone https://github.com/bzbj/vibe-tree-lite.git
+Set-Location .\vibe-tree-lite
+npm.cmd ci
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-windows.ps1
+```
+
+安装器会把无 Electron 的运行包安装到 `%LOCALAPPDATA%\VibeTreeLite`，注册当前用户计划任务，并创建开始菜单快捷方式。
+
+更新到最新版：
+
+```powershell
+Set-Location .\vibe-tree-lite
+git pull --ff-only
+npm.cmd ci
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-windows.ps1
+```
+
+卸载计划任务与快捷方式但保留 Token 数据：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-lite-windows.ps1
+```
+
+## 多设备 GitHub 同步
+
+1. 在每台设备上安装并打开本地页面。
+2. 点击“使用 GitHub 登录”，在浏览器中完成授权。
+3. 两台设备使用同一个 GitHub 账号。Lite 会自动查找已有云端数据：找到后加入，没有则从本机创建。
+4. 顶栏显示 `GitHub · 用户名` 后，点击“立即同步”可手动检查；后台也会定时同步。
+
+同步的是按天、设备、来源和模型聚合后的 Token 数据，不会上传代码、Prompt、回复、会话正文或本地路径。完整说明见 [PRIVACY.md](PRIVACY.md)。
+
+## 支持的数据源
+
+| Agent | 默认数据来源 |
+| --- | --- |
+| Codex | `~/.codex/sessions/**/*.jsonl` |
+| Claude Code | `~/.claude/projects/**/*.jsonl` |
+| OpenClaw | `~/.openclaw/agents/**/sessions/*.jsonl` |
+| Pi Agent | `~/.pi/agent/sessions/**/*.jsonl` |
+| OpenCode | `~/.local/share/opencode/opencode.db`，兼容旧版 JSON |
+| Gemini | 本地 Gemini 会话目录 |
+| Hermes | 本地 Hermes 会话目录 |
+| Kimi Code | `~/.kimi-code/sessions/**/wire.jsonl` |
+
+安装后会自动检测可用来源。不要同时运行 Electron Vibe Tree 和 Vibe Tree Lite：两者会使用相同的 watcher 游标与事件文件。
+
+## 手动运行与验证
+
+不安装后台服务，仅在当前终端运行：
 
 ```bash
 npm ci
-npm start
-```
-
-如果只需要 token 统计、排行榜/多设备同步和按模型的每日柱状图，可使用不启动 Electron 的
-[Vibe Tree Lite](LITE.md)：
-
-```bash
 npm run build:lite
 npm run start:lite
 ```
 
-在 macOS 上，`npm start` 会在本机生成 `dist/Vibe Tree.app`，使用固定的 Vibe Tree 应用身份启动菜单栏与 Dock，并自动沿用已有的命令行版本数据。这个本机构建使用 ad-hoc 签名，不需要 Apple Developer 账号。
-
-开发模式：
+项目检查：
 
 ```bash
-npm run dev
-```
-
-`npm run dev` 会直接使用 Electron 的开发身份，只用于热更新调试，不建议作为日常启动方式。
-
-构建检查：
-
-```bash
+npm run test:lite
 npm run typecheck
-npm run build
 ```
 
-如果 Electron 二进制从 GitHub 下载较慢，可以临时使用国内镜像：
+更多端口、数据目录、自托管同步服务等配置见 [LITE.md](LITE.md)。
 
-```bash
-ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
-npm_config_electron_mirror=https://npmmirror.com/mirrors/electron/ \
-npm ci
-```
+## 安全边界
 
-也可以写入本地 `.npmrc`：
-
-```ini
-electron_mirror=https://npmmirror.com/mirrors/electron/
-```
-
-## 支持的 Agent
-
-| Agent | 状态 | 默认数据来源 |
-| --- | --- | --- |
-| Codex | ✅ | `~/.codex/sessions/**/*.jsonl` |
-| Claude Code | ✅ | `~/.claude/projects/**/*.jsonl` |
-| OpenClaw | ✅ | `~/.openclaw/agents/**/sessions/*.jsonl` |
-| Pi Agent | ✅ | `~/.pi/agent/sessions/**/*.jsonl` |
-| OpenCode | ✅ | `~/.local/share/opencode/opencode.db`（兼容旧版 `storage/message/**/*.json`） |
-| Gemini | ✅ | 本地 Gemini 会话目录 |
-| Hermes | ✅ | 本地 Hermes 会话目录 |
-| Kimi Code | ✅ | `~/.kimi-code/sessions/**/wire.jsonl` |
-
-安装后会自动检测默认路径。也可以在设置面板里自定义每个 agent 的数据路径，或关闭不想统计的来源。
-
-## 数据与隐私
-
-Vibe Tree 优先做本地统计。默认不会上传代码、提示词、文件名、路径、会话内容或完整小时热力图。
-
-开启「同养一棵树」后，只同步养成所需的数据：token 事件、安全来源分类、设备 id、粗粒度设备摘要、成就状态，以及按天/设备/来源/模型汇总后的 token 数。不会上传单条会话内容、prompt、回复、本地路径或代码文件。
-
-完整数据处理说明见 [PRIVACY.md](PRIVACY.md)。
-
-加入排行榜时，默认只同步每日 token 总量、24h 小时级 token 汇总和本地首次使用日期，用于计算 24h、7 天、30 天和全部榜单。开启「公开使用偏好」后，才会额外上传聚合后的四项信息：
-
-- 最常用 Agent
-- 常用模型
-- 偏爱时段
-- token 峰值
-
-这些信息只用于排行榜展示。
-
-## Token 规则
-
-```text
-计入 Token = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens
-```
-
-部分 provider 会把缓存输入包含在 `inputTokens` 里；Anthropic 会单独上报 cache read / write。Vibe Tree 会按每次请求的总 token 消耗计入成长，并对已包含在 `inputTokens` 里的缓存输入只计一次，避免双算。
-
-默认从安装当天开始统计，安装日前的历史不会计入，除非通过环境变量显式导入历史。
-
-## 导入历史数据
-
-macOS / Linux:
-
-```bash
-VIBE_CODEX_IMPORT_HISTORY=today \
-VIBE_CLAUDE_IMPORT_HISTORY=today \
-VIBE_OPENCLAW_IMPORT_HISTORY=today \
-VIBE_OPENCODE_IMPORT_HISTORY=today \
-VIBE_KIMI_IMPORT_HISTORY=today \
-npm start
-```
-
-Windows PowerShell:
-
-```powershell
-$env:VIBE_CODEX_IMPORT_HISTORY="today"
-$env:VIBE_CLAUDE_IMPORT_HISTORY="today"
-$env:VIBE_OPENCLAW_IMPORT_HISTORY="today"
-$env:VIBE_OPENCODE_IMPORT_HISTORY="today"
-$env:VIBE_KIMI_IMPORT_HISTORY="today"
-npm start
-```
-
-## 云同步与排行榜服务
-
-线上版本默认使用项目配置的 Cloudflare Worker。自托管或本地调试时可以覆盖：
-
-```bash
-VIBE_TREE_LEADERBOARD_API_URL=https://your-worker.workers.dev npm start
-```
-
-后端模板在：
-
-```text
-server/leaderboard-worker/
-```
-
-## Game Balance
-
-成长、天气和活跃窗口由这里配置：
-
-```text
-public/assets/trees/vibe-bonsai/config/game-balance.json
-```
-
-包含 Token 等级曲线、天气阈值、成长阶段阈值和活跃窗口参数。
-
-## 更新记录
-
-查看 [CHANGELOG.md](CHANGELOG.md)。
+- HTTP 服务只监听 `127.0.0.1`。
+- 写操作需要随机页面令牌和同源请求。
+- 页面 API 不返回 GitHub bearer token、设备 ID、本地路径或其他用户资料。
+- 默认沿用原版 Vibe Tree 的本地数据目录，升级和卸载 Lite 都不会主动删除历史数据。
 
 ## License
 
