@@ -51,6 +51,7 @@ try {
   assert(dashboard.topModel === "gpt-5.6", "top model");
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
   assert(html.includes("Vibe Tree Lite") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "dashboard HTML and CSRF injection");
+  assert(html.includes('id="rank-list"') && html.includes('id="auth-actions"'), "leaderboard and GitHub sync controls");
   assert(disabledSync.error === "当前以禁用同步模式运行。", "disabled sync returns a bounded API error");
   child.kill("SIGTERM");
   await new Promise((resolve) => child.once("close", resolve));

@@ -34,3 +34,47 @@ jobs:
 
       - name: Smoke Electron main process
         run: npm run smoke:electron
+
+  lite-windows:
+    name: Lite on Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $files = @(
+            "scripts/install-lite-windows.ps1",
+            "scripts/uninstall-lite-windows.ps1",
+            "scripts/windows/Start-VibeTreeLite.ps1",
+            "scripts/windows/Stop-VibeTreeLite.ps1"
+          )
+          $failed = $false
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Error "${file}: $_" }
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Test Lite
+        run: npm run test:lite

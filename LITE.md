@@ -56,10 +56,36 @@ removed without deleting token data:
 npm run uninstall:lite:mac
 ```
 
+## Windows background service
+
+Install Node.js 22 or newer, open PowerShell in the repository, then run:
+
+```powershell
+npm.cmd ci
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-windows.ps1
+```
+
+The installer builds a dependency-free Lite package, installs it under
+`%LOCALAPPDATA%\VibeTreeLite`, registers the current-user scheduled task
+`VibeTreeLite.Headless.Local`, creates a Start menu shortcut, and starts the
+service. Existing token data is detected and preserved. Re-run the same command
+after pulling a newer version to update the installed service.
+
+To remove the task and shortcut while preserving token data:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-lite-windows.ps1
+```
+
+Add `-RemoveProgramFiles` only when the installed program files should also be
+removed; the Vibe Tree token data directory is still preserved.
+
 ## Second device
 
-1. Build or copy the output of `npm run package:lite` to the second device.
-2. Run `node lite/server.js` from the packaged `dist/vibe-tree-lite` directory.
+1. Use the Windows/macOS installer above, or copy the output of
+   `npm run package:lite` to the second device.
+2. When running a copied package manually, run `node lite/server.js` from the
+   packaged `dist/vibe-tree-lite` directory.
 3. Open the local page and choose **加入已有同步**.
 4. Complete GitHub login in the browser. The original OAuth callback and cloud
    pull/push protocol are reused.

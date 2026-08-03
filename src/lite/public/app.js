@@ -1,11 +1,17 @@
 const token = document.querySelector('meta[name="vibe-tree-token"]').content;
 const palette = ["#174f3a", "#2c8562", "#47b989", "#7bcba5", "#d4a64c", "#d87956", "#846ca7", "#7b8680"];
+const rangeLabels = { "24h": "24H", "7d": "7天", "30d": "30天", all: "全部" };
 let toastTimer;
 let dashboardData;
 let selectedModel;
 
 document.querySelector("#sync-button").addEventListener("click", () => mutate("/api/sync", "同步完成"));
 document.querySelector("#clear-model").addEventListener("click", () => selectModel());
+document.querySelector("#auth-actions").addEventListener("click", (event) => {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (action === "connect-existing") mutate("/api/connect-existing", "已加入同步");
+  if (action === "connect-new") mutate("/api/connect-new", "已建立同步");
+});
 
 await refresh();
 setInterval(refresh, 30_000);
@@ -56,7 +62,14 @@ function render(data) {
   else if (data.cloud.enabled) setSyncState("good", data.cloud.lastSyncedAt ? `已同步 · ${relative(data.cloud.lastSyncedAt)}` : "同步已连接");
   else setSyncState("warn", "尚未连接同步");
 
+  const connected = data.cloud.authenticated && data.cloud.enabled;
+  document.querySelector("#auth-actions").hidden = connected;
+  setText("sync-identity", data.cloud.profile?.username ? `GitHub · ${data.cloud.profile.username}` : "尚未连接 GitHub");
+  setText("auth-note", data.cloud.authenticated
+    ? `已登录 ${data.cloud.profile?.username || "GitHub"}，请选择要加入的同步方式。`
+    : "这台设备尚未连接 GitHub 同步。");
   renderChart(data.chart, context);
+  renderRanks(data.leaderboard || {});
 }
 
 function chartContext(days) {
@@ -218,6 +231,27 @@ function moveTooltip(x, y) {
 
 function hideTooltip() {
   document.querySelector("#chart-tooltip").hidden = true;
+}
+
+function renderRanks(leaderboard) {
+  const list = document.querySelector("#rank-list");
+  list.replaceChildren();
+  for (const range of ["24h", "7d", "30d", "all"]) {
+    const data = leaderboard[range] || {};
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    const label = document.createElement("span");
+    label.className = "rank-range";
+    label.textContent = rangeLabels[range];
+    const rank = document.createElement("strong");
+    rank.className = data.rank ? "rank-value" : "rank-empty";
+    rank.textContent = data.rank ? `#${format(data.rank)}` : "未上榜";
+    const tokens = document.createElement("span");
+    tokens.className = "rank-token";
+    tokens.textContent = data.tokens != null ? `${compact(data.tokens)} Token` : data.error ? "暂不可用" : "等待同步";
+    row.append(label, rank, tokens);
+    list.append(row);
+  }
 }
 
 function setSyncState(kind, text) {

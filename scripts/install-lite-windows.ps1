@@ -86,11 +86,14 @@ $config = [ordered]@{
 }
 $config | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $launcherRoot "config.json") -Encoding utf8
 
-$pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
-$conhostPath = Join-Path $env:SystemRoot "System32\conhost.exe"
+$powerShellCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+if (-not $powerShellCommand) {
+  $powerShellCommand = Get-Command powershell.exe -ErrorAction Stop
+}
+$powerShellPath = $powerShellCommand.Source
 $startScript = Join-Path $launcherRoot "Start-VibeTreeLite.ps1"
-$arguments = "--headless `"$pwshPath`" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$startScript`""
-$action = New-ScheduledTaskAction -Execute $conhostPath -Argument $arguments -WorkingDirectory $InstallRoot
+$arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$startScript`""
+$action = New-ScheduledTaskAction -Execute $powerShellPath -Argument $arguments -WorkingDirectory $InstallRoot
 $userId = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
 $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited

@@ -79,7 +79,10 @@ store.onChange(() => {
 await acquireRuntimeLock();
 service.readAuth();
 if (!DISABLE_WATCHERS) startWatchers();
-if (!DISABLE_SYNC) service.startSync();
+if (!DISABLE_SYNC) {
+  service.startSync();
+  void getLeaderboards(true);
+}
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -160,11 +163,12 @@ async function performSyncAll() {
   if (DISABLE_SYNC) return { error: "当前以禁用同步模式运行。" };
   const cloud = await service.syncCloudTree({ force: true, pullFirst: true });
   const leaderboard = await service.syncUsage({ force: true });
-  leaderboardCache = undefined;
+  const collection = await getLeaderboards(true);
   return {
     ok: !cloud.error && !leaderboard.error,
     cloud: { lastSyncedAt: cloud.lastSyncedAt, uploaded: cloud.lastUploadedCount, downloaded: cloud.lastDownloadedCount, error: cloud.error },
     leaderboard: { lastSyncedAt: leaderboard.lastSyncedAt, error: leaderboard.error },
+    ranks: summarizeLeaderboards(collection),
   };
 }
 
