@@ -262,7 +262,17 @@ h2 { margin: 0; font: 800 21px/1.1 inherit; letter-spacing: -0.025em; }
 .connect-actions { display: grid; gap: 8px; }
 .text-button { display: block; margin: 0 auto; border: 0; color: var(--ink); background: none; font: 650 10px/1.4 inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-footer { display: flex; justify-content: space-between; padding: 10px 4px 0; color: var(--muted); font-size: 8px; letter-spacing: 0.05em; }
+footer { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 10px 4px 0; color: var(--muted); font-size: 8px; letter-spacing: 0.05em; }
+.footer-attribution { text-align: right; }
+footer a {
+  color: inherit;
+  font-weight: 750;
+  text-decoration-color: color-mix(in srgb, var(--muted), transparent 35%);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+}
+footer a:hover { color: var(--red-strong); text-decoration-color: currentColor; }
 .toast {
   position: fixed;
   right: 24px;
@@ -306,6 +316,8 @@ footer { display: flex; justify-content: space-between; padding: 10px 4px 0; col
   .connect-panel { grid-template-columns: 1fr; gap: 14px; padding: 16px 14px; }
   footer { display: block; line-height: 1.8; }
   footer span { display: block; }
+  .footer-attribution { margin-top: 2px; text-align: left; }
+  footer a { display: inline-flex; align-items: center; min-height: 32px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -57,6 +57,13 @@ try {
   assert(dashboard.topModel === "gpt-5.6", "top model");
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
   assert(html.includes("Vibe Tree Lite · 阳光积木") && html.includes("Sunlit Blocks") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "Sunlit Blocks dashboard branding and CSRF injection");
+  assert(
+    html.includes('href="https://github.com/bzbj/vibe-tree-lite"') &&
+    html.includes('href="https://github.com/Olorinm/vibe-tree"') &&
+    html.includes("© 2026") &&
+    !html.includes("仅监听 127.0.0.1"),
+    "footer copyright and repository attribution links",
+  );
   assert(!html.includes('id="rank-list"') && !html.includes("LEADERBOARD") && html.includes('data-action="connect-github"'), "single GitHub connection control without leaderboard");
   assert(app.includes("GitHub · ${username}"), "GitHub username in the top sync state");
   assert(app.includes('mutate("/api/connect-github"'), "GitHub connection action");
