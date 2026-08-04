@@ -91,9 +91,13 @@ if (-not $powerShellCommand) {
   $powerShellCommand = Get-Command powershell.exe -ErrorAction Stop
 }
 $powerShellPath = $powerShellCommand.Source
+$conhostPath = Join-Path $env:SystemRoot "System32\conhost.exe"
+if (-not (Test-Path -LiteralPath $conhostPath -PathType Leaf)) {
+  throw "Windows Console Host not found: $conhostPath"
+}
 $startScript = Join-Path $launcherRoot "Start-VibeTreeLite.ps1"
-$arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$startScript`""
-$action = New-ScheduledTaskAction -Execute $powerShellPath -Argument $arguments -WorkingDirectory $InstallRoot
+$arguments = "--headless `"$powerShellPath`" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$startScript`""
+$action = New-ScheduledTaskAction -Execute $conhostPath -Argument $arguments -WorkingDirectory $launcherRoot
 $userId = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
 $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited
