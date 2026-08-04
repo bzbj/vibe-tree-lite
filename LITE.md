@@ -68,7 +68,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-lite-w
 The installer builds a dependency-free Lite package, installs it under
 `%LOCALAPPDATA%\VibeTreeLite`, registers the current-user scheduled task
 `VibeTreeLite.Headless.Local`, creates a Start menu shortcut, and starts the
-service. Existing token data is detected and preserved. Re-run the same command
+service through `conhost.exe --headless`, so no PowerShell console window is
+shown. Existing token data is detected and preserved. Re-run the same command
 after pulling a newer version to update the installed service.
 
 To remove the task and shortcut while preserving token data:
