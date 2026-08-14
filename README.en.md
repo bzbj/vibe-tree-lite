@@ -10,7 +10,7 @@ A local token dashboard and multi-device sync service without Electron. Only a N
 
 ## What stays
 
-- Local usage watchers for Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, and Kimi Code.
+- Local usage watchers for Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, Kimi Code, and DeepSeek Harness.
 - Today, recent 30-day, and all-time token totals.
 - A 30-day daily bar chart stacked by model.
 - Clickable model legends and chart blocks for highlighting, filtering, and inspecting each model's share.
@@ -106,8 +106,11 @@ Sync contains token aggregates grouped by day, device, source, and model. Code, 
 | Gemini | local Gemini session directory |
 | Hermes | local Hermes session directory |
 | Kimi Code | `~/.kimi-code/sessions/**/wire.jsonl` |
+| DeepSeek Harness | macOS/Linux: `$HOME/.dsh/sessions/**/session.jsonl[.zstd]`; Windows: `%USERPROFILE%\.dsh\sessions\**\session.jsonl[.zstd]`; `$DSH_HOME/sessions` is also supported |
 
 Available sources are detected automatically. Do not run Electron Vibe Tree and Vibe Tree Lite at the same time: both use the same watcher offsets and event file.
+
+DeepSeek Harness counts new usage written after the watcher starts by default. Override the session root with `VIBE_DEEPSEEK_SESSIONS_DIR`, or set `VIBE_DEEPSEEK_IMPORT_HISTORY=today` to import today's history. See [DeepSeek Harness integration](docs/DEEPSEEK_HARNESS.md) for implementation and manual verification details.
 
 ## Run manually and validate
 
@@ -123,6 +126,7 @@ Project checks:
 
 ```bash
 npm run test:lite
+npm run test:deepseek-watcher
 npm run typecheck
 ```
 

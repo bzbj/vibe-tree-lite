@@ -10,7 +10,7 @@
 
 ## 保留了什么
 
-- Codex、Claude Code、OpenClaw、Pi Agent、OpenCode、Gemini、Hermes 和 Kimi Code 的本地用量采集。
+- Codex、Claude Code、OpenClaw、Pi Agent、OpenCode、Gemini、Hermes、Kimi Code 和 DeepSeek Harness 的本地用量采集。
 - 今日、最近 30 日和累计 Token 汇总。
 - 最近 30 天的每日柱状图，并按模型堆叠显示。
 - 点击模型图例或柱状图方块进行高亮、筛选和查看占比。
@@ -106,8 +106,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-lite
 | Gemini | 本地 Gemini 会话目录 |
 | Hermes | 本地 Hermes 会话目录 |
 | Kimi Code | `~/.kimi-code/sessions/**/wire.jsonl` |
+| DeepSeek Harness | macOS/Linux：`$HOME/.dsh/sessions/**/session.jsonl[.zstd]`；Windows：`%USERPROFILE%\.dsh\sessions\**\session.jsonl[.zstd]`；也支持 `$DSH_HOME/sessions` |
 
 安装后会自动检测可用来源。不要同时运行 Electron Vibe Tree 和 Vibe Tree Lite：两者会使用相同的 watcher 游标与事件文件。
+
+DeepSeek Harness 默认只统计 watcher 启动后新增的用量。可通过 `VIBE_DEEPSEEK_SESSIONS_DIR` 覆盖会话目录，或设置 `VIBE_DEEPSEEK_IMPORT_HISTORY=today` 导入当天历史。实现与手工验证说明见 [DeepSeek Harness 集成说明](docs/DEEPSEEK_HARNESS.md)。
 
 ## 手动运行与验证
 
@@ -123,6 +126,7 @@ npm run start:lite
 
 ```bash
 npm run test:lite
+npm run test:deepseek-watcher
 npm run typecheck
 ```
 

@@ -32,6 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: DeepSeek Harness watcher fixture
+        run: node scripts/test-deepseek-session-watcher.mjs
+
       - name: Smoke Electron main process
         run: npm run smoke:electron
 
