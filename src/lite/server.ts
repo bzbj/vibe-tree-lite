@@ -23,7 +23,7 @@ import {
 import { LiteStore } from "./store.js";
 import { LiteThemePacks } from "./themePacks.js";
 
-const VERSION = "0.8.2-lite.2";
+const VERSION = "0.8.2-lite.3";
 const DEFAULT_API_URL = "https://vibe-tree-leaderboard.melanthascherffmugutubu.workers.dev";
 const PORT = numericEnv("VIBE_TREE_LITE_PORT", 47831, 0, 65535);
 const HOST = "127.0.0.1";
@@ -101,6 +101,9 @@ const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/theme.css") {
       return serveThemeStylesheet(response, request.method === "HEAD");
+    }
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/theme-mascot") {
+      return serveThemeMascot(response, request.method === "HEAD");
     }
     if (request.method === "GET" && url.pathname === "/api/health") {
       return sendJson(response, 200, { ok: true, version: VERSION, changeVersion });
@@ -379,6 +382,19 @@ function serveThemeStylesheet(response: http.ServerResponse, headOnly: boolean) 
     "X-Vibe-Tree-Theme": stylesheet.id,
   }));
   response.end(headOnly ? undefined : body);
+}
+
+function serveThemeMascot(response: http.ServerResponse, headOnly: boolean) {
+  const mascot = themePacks.mascot();
+  if (!mascot) return sendText(response, 404, "Not found");
+  response.writeHead(200, securityHeaders({
+    "Content-Type": mascot.contentType,
+    "Content-Length": String(mascot.body.length),
+    "Cache-Control": "no-cache",
+    ETag: `"${mascot.revision}"`,
+    "X-Vibe-Tree-Theme": mascot.id,
+  }));
+  response.end(headOnly ? undefined : mascot.body);
 }
 
 async function selectTheme(request: http.IncomingMessage, response: http.ServerResponse) {

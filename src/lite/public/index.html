@@ -76,6 +76,14 @@
           <div class="y-axis" aria-hidden="true"><span id="axis-max">—</span><span id="axis-mid">—</span><span>0</span></div>
           <div class="chart" id="chart" role="group" aria-label="最近 30 天每日 Token 消耗，按模型堆叠"></div>
         </div>
+        <div class="mascot-rail" id="theme-mascot" data-slot="chart-rail" hidden aria-hidden="true">
+          <div class="mascot-floor" aria-hidden="true"></div>
+          <div class="mascot-pet" id="theme-mascot-pet" data-state="idle" data-action="idle-bob">
+            <img id="theme-mascot-image" alt="">
+            <span class="mascot-bubble" id="theme-mascot-bubble">工作中～</span>
+            <span class="mascot-spark" id="theme-mascot-spark" aria-hidden="true">✦</span>
+          </div>
+        </div>
         <div class="empty-state" id="empty-state" hidden>这段时间还没有可显示的 Token 记录。</div>
         <p class="sr-only" id="model-filter-status" aria-live="polite"></p>
       </section>

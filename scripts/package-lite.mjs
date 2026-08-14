@@ -15,12 +15,12 @@ cpSync(source, target, {
 writeFileSync(join(target, "package.json"), JSON.stringify({
   name: "vibe-tree-lite-runtime",
   private: true,
-  version: "0.8.2-lite.2",
+  version: "0.8.2-lite.3",
   type: "module",
   scripts: { start: "node lite/server.js" },
 }, null, 2) + "\n");
 writeFileSync(join(target, "README.txt"), [
-  "Vibe Tree Lite 0.8.2-lite.2",
+  "Vibe Tree Lite 0.8.2-lite.3",
   "",
   "Requires Node.js 22 or newer. No npm install is required.",
   "Start: node lite/server.js",

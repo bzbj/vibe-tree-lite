@@ -29,6 +29,13 @@ try {
     subtitle: "Quiet Test",
     css: testThemeCss("quiet-test-loaded"),
   });
+  writeThemePack(themesRoot, "mascot-test", {
+    schemaVersion: 2,
+    name: "橘猫测试",
+    subtitle: "Mascot Test",
+    css: testThemeCss("mascot-test-loaded"),
+    mascot: true,
+  });
   writeThemePack(themesRoot, "invalid-entry", {
     name: "错误入口",
     subtitle: "Invalid Entry",
@@ -49,6 +56,13 @@ try {
     name: "混淆链接",
     subtitle: "Obfuscated URL",
     css: testThemeCss("must-not-load").replace("linear-gradient(#10131a, #171b24)", "u/**/rl(https://example.com/background.png)"),
+  });
+  writeThemePack(themesRoot, "mascot-missing", {
+    schemaVersion: 2,
+    name: "缺失猫图",
+    subtitle: "Missing Mascot",
+    css: testThemeCss("must-not-load"),
+    mascot: { asset: "assets/missing.png" },
   });
 
   const child = spawn(process.execPath, [serverPath], {
@@ -72,6 +86,7 @@ try {
   const themes = await fetch(`${base}/api/themes`).then((response) => response.json());
   const defaultThemeResponse = await fetch(`${base}/theme.css`);
   const defaultThemeCss = await defaultThemeResponse.text();
+  const defaultMascotResponse = await fetch(`${base}/theme-mascot`);
   const token = html.match(/meta name="vibe-tree-token" content="([^"]+)"/)?.[1];
   const disabledSync = await fetch(`${base}/api/sync`, {
     method: "POST",
@@ -104,10 +119,12 @@ try {
   const selectedTheme = await fetch(`${base}/api/theme`, {
     method: "POST",
     headers: { Origin: base, "Content-Type": "application/json", "X-Vibe-Tree-Token": token ?? "" },
-    body: JSON.stringify({ id: "quiet-test" }),
+    body: JSON.stringify({ id: "mascot-test" }),
   }).then((response) => response.json());
   const selectedThemeResponse = await fetch(`${base}/theme.css`);
   const selectedThemeCss = await selectedThemeResponse.text();
+  const selectedMascotResponse = await fetch(`${base}/theme-mascot`);
+  const selectedMascotBytes = await selectedMascotResponse.arrayBuffer();
 
   assert(health.ok === true, "health endpoint");
   assert(dashboard.totals.today === 2500, "today total");
@@ -126,17 +143,22 @@ try {
   assert(app.includes("GitHub · ${username}"), "GitHub username in the top sync state");
   assert(app.includes('mutate("/api/connect-github"'), "GitHub connection action");
   assert(app.includes('fetch("/api/themes"') && app.includes('fetch("/api/theme"'), "theme catalog and selection actions");
+  assert(app.includes("setMascotState") && app.includes("/theme-mascot"), "declarative mascot runtime and asset route");
+  assert(css.includes(".mascot-rail") && css.includes("prefers-reduced-motion"), "mascot rail and reduced-motion fallback");
   assert(css.includes(".bar-segment:active") && css.includes("transform: scale(0.97)") && !css.includes("dopamine-pop") && !app.includes("is-popping"), "restrained tile click feedback assets");
   assert(css.includes("Primitive fallbacks") && css.includes("Semantic fallbacks") && css.includes("Component fallbacks"), "three-layer theme token surface");
-  assert(themes.activeId === "sunlit-blocks" && themes.themes.length === 2, "bundled and valid local themes are discovered");
-  assert(themes.ignoredCount === 4 && !JSON.stringify(themes).includes(fixture) && !JSON.stringify(themes).includes("theme.css"), "invalid packs are ignored without exposing paths or entries");
+  assert(themes.activeId === "sunlit-blocks" && themes.themes.length === 3, "bundled, CSS-only, and mascot themes are discovered");
+  assert(themes.themes.some((theme) => theme.id === "mascot-test" && theme.mascot?.slot === "chart-rail"), "mascot metadata is public without asset paths");
+  assert(themes.ignoredCount === 5 && !JSON.stringify(themes).includes(fixture) && !JSON.stringify(themes).includes("theme.css") && !JSON.stringify(themes).includes("assets/"), "invalid packs are ignored without exposing paths or entries");
   assert(defaultThemeResponse.headers.get("x-vibe-tree-theme") === "sunlit-blocks" && defaultThemeCss.includes("--vt-p-cream-100"), "default bundled theme stylesheet");
+  assert(defaultMascotResponse.status === 404, "themes without mascots do not expose a mascot asset");
   assert(unauthorizedThemeSelect.status === 403, "theme selection requires the page token");
   assert(missingThemeSelect.status === 404, "missing themes fail without changing state");
   assert(malformedThemeSelect.status === 400 && oversizedThemeSelect.status === 400, "malformed and oversized theme requests are bounded");
-  assert(selectedTheme.ok === true && selectedTheme.activeId === "quiet-test", "valid local theme selection");
-  assert(selectedThemeResponse.headers.get("x-vibe-tree-theme") === "quiet-test" && selectedThemeCss.includes("quiet-test-loaded"), "selected local theme stylesheet");
-  assert(JSON.parse(readFileSync(join(fixture, "lite-theme.json"), "utf8")).activeThemeId === "quiet-test", "theme selection persistence file");
+  assert(selectedTheme.ok === true && selectedTheme.activeId === "mascot-test" && selectedTheme.active.mascot?.slot === "chart-rail", "valid mascot theme selection");
+  assert(selectedThemeResponse.headers.get("x-vibe-tree-theme") === "mascot-test" && selectedThemeCss.includes("mascot-test-loaded"), "selected mascot theme stylesheet");
+  assert(selectedMascotResponse.status === 200 && selectedMascotResponse.headers.get("content-type")?.startsWith("image/png") && selectedMascotResponse.headers.get("x-vibe-tree-theme") === "mascot-test" && selectedMascotBytes.byteLength > 32, "selected mascot asset route");
+  assert(JSON.parse(readFileSync(join(fixture, "lite-theme.json"), "utf8")).activeThemeId === "mascot-test", "theme selection persistence file");
   assert(disabledSync.error === "当前以禁用同步模式运行。", "disabled sync returns a bounded API error");
   assert(disabledGithubConnect.error === "当前以禁用同步模式运行。", "disabled GitHub connect returns a bounded API error");
   child.kill("SIGTERM");
@@ -173,8 +195,10 @@ try {
   assert(deepseekBase, "DeepSeek Lite ready URL");
   const restartedThemes = await fetch(`${deepseekBase}/api/themes`).then((response) => response.json());
   const restartedThemeResponse = await fetch(`${deepseekBase}/theme.css`);
-  assert(restartedThemes.activeId === "quiet-test", "selected theme persists across Lite restart");
-  assert(restartedThemeResponse.headers.get("x-vibe-tree-theme") === "quiet-test", "restart serves the persisted theme");
+  assert(restartedThemes.activeId === "mascot-test", "selected theme persists across Lite restart");
+  assert(restartedThemeResponse.headers.get("x-vibe-tree-theme") === "mascot-test", "restart serves the persisted theme");
+  const restartedMascotResponse = await fetch(`${deepseekBase}/theme-mascot`);
+  assert(restartedMascotResponse.status === 200 && restartedMascotResponse.headers.get("x-vibe-tree-theme") === "mascot-test", "restart serves the persisted mascot");
   const deepseekDashboard = await waitForDashboard(deepseekBase, (value) => value.watchers?.eventsImported === 1);
   assert(deepseekDashboard.watchers.running === 1, "only the enabled DeepSeek watcher is running");
   assert(deepseekDashboard.watchers.detected === 1, "DeepSeek sessions root is detected");
@@ -202,8 +226,8 @@ function event(id, createdAt, model, tokens) {
 function writeThemePack(root, id, options) {
   const directory = join(root, id);
   mkdirSync(directory, { recursive: true });
-  writeFileSync(join(directory, "theme.json"), JSON.stringify({
-    schemaVersion: 1,
+  const manifest = {
+    schemaVersion: options.schemaVersion || 1,
     id,
     name: options.name,
     subtitle: options.subtitle,
@@ -212,7 +236,28 @@ function writeThemePack(root, id, options) {
     version: "1.0.0",
     colorScheme: "dark",
     entry: options.entry || "theme.css",
-  }));
+  };
+  if (options.mascot) {
+    manifest.mascot = {
+      asset: options.mascot === true ? "assets/mascot.png" : options.mascot.asset,
+      slot: "chart-rail",
+      desktopSize: 132,
+      mobileSize: 72,
+      states: {
+        idle: "idle-bob",
+        walk: "rail-walk",
+        syncing: "typing",
+        success: "hop-star",
+        empty: "sleep",
+        error: "concerned",
+      },
+    };
+    if (options.mascot === true) {
+      mkdirSync(join(directory, "assets"), { recursive: true });
+      writeFileSync(join(directory, "assets", "mascot.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+    }
+  }
+  writeFileSync(join(directory, "theme.json"), JSON.stringify(manifest));
   writeFileSync(join(directory, "theme.css"), options.css, "utf8");
 }
 

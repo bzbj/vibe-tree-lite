@@ -26,7 +26,7 @@ Lite 不包含桌面树、天气、等级、成就、分享卡片、排行榜页
 
 ## 主题包
 
-Lite 内置“阳光积木”，并会发现 Vibe Tree 数据目录下 `themes/<theme-id>/` 中的本地主题包。每个包只包含 `theme.json` 与受限的 `theme.css` token；在顶栏选择后立即生效，并保存到 Lite 专用的 `lite-theme.json`。新增或删除主题包后刷新页面即可更新列表。
+Lite 内置“阳光积木”，并会发现 Vibe Tree 数据目录下 `themes/<theme-id>/` 中的本地主题包。每个包包含 `theme.json` 与受限的 `theme.css` token；schema 2 主题还可以带一个透明 PNG，在图表下方的 `chart-rail` 槽位显示受控动效的桌面宠物。在顶栏选择后立即生效，并保存到 Lite 专用的 `lite-theme.json`。新增或删除主题包后刷新页面即可更新列表。
 
 主题包不能运行 JavaScript、导入远程 CSS 或读取本地文件。完整格式、安装目录和 token 清单见 [Lite 主题包说明](docs/LITE_THEMES.md)。
 

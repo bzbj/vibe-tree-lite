@@ -10,11 +10,18 @@ import {
 import { join, sep } from "node:path";
 
 const THEME_SCHEMA_VERSION = 1;
+const MASCOT_THEME_SCHEMA_VERSION = 2;
 const DEFAULT_THEME_ID = "sunlit-blocks";
 const MAX_MANIFEST_BYTES = 16 * 1024;
 const MAX_STYLESHEET_BYTES = 128 * 1024;
+const MAX_MASCOT_BYTES = 2 * 1024 * 1024;
+const MAX_MASCOT_DIMENSION = 2048;
+const MAX_MASCOT_PIXELS = 4 * 1024 * 1024;
 const SAFE_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const SAFE_VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,31}$/;
+const SAFE_MASCOT_ASSET = /^assets\/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\.png$/;
+const MASCOT_ACTIONS = ["idle-bob", "rail-walk", "typing", "hop-star", "sleep", "concerned"] as const;
+const MASCOT_SLOTS = ["chart-rail"] as const;
 const REQUIRED_TOKENS = [
   "--vt-color-background",
   "--vt-color-surface",
@@ -26,8 +33,20 @@ const REQUIRED_TOKENS = [
   "--vt-chart-2",
 ] as const;
 
+type MascotAction = typeof MASCOT_ACTIONS[number];
+type MascotSlot = typeof MASCOT_SLOTS[number];
+type MascotState = "idle" | "walk" | "syncing" | "success" | "empty" | "error";
+
+interface MascotManifest {
+  asset: string;
+  slot: MascotSlot;
+  desktopSize: number;
+  mobileSize: number;
+  states: Record<MascotState, MascotAction>;
+}
+
 interface ThemeManifest {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   id: string;
   name: string;
   subtitle: string;
@@ -36,12 +55,14 @@ interface ThemeManifest {
   version: string;
   colorScheme: "light" | "dark";
   entry: "theme.css";
+  mascot?: MascotManifest;
 }
 
 interface LoadedTheme extends ThemeManifest {
   builtin: boolean;
   css: string;
   revision: string;
+  mascotAsset?: Buffer;
 }
 
 interface ThemeState {
@@ -59,6 +80,12 @@ export interface PublicThemePack {
   colorScheme: "light" | "dark";
   builtin: boolean;
   revision: string;
+  mascot?: {
+    slot: MascotSlot;
+    desktopSize: number;
+    mobileSize: number;
+    states: Record<MascotState, MascotAction>;
+  };
 }
 
 export interface ThemeCatalog {
@@ -66,6 +93,13 @@ export interface ThemeCatalog {
   active: PublicThemePack;
   themes: PublicThemePack[];
   ignoredCount: number;
+}
+
+export interface ThemeMascotAsset {
+  id: string;
+  revision: string;
+  contentType: "image/png";
+  body: Buffer;
 }
 
 interface LiteThemePacksOptions {
@@ -122,6 +156,18 @@ export class LiteThemePacks {
     };
   }
 
+  mascot() {
+    const scan = this.scan();
+    const active = scan.themes.get(this.activeThemeId) ?? scan.themes.get(DEFAULT_THEME_ID) ?? firstTheme(scan.themes);
+    if (!active?.mascot || !active.mascotAsset) return undefined;
+    return {
+      id: active.id,
+      revision: active.revision,
+      contentType: "image/png",
+      body: active.mascotAsset,
+    } satisfies ThemeMascotAsset;
+  }
+
   private scan() {
     const themes = new Map<string, LoadedTheme>();
     let ignoredCount = 0;
@@ -164,8 +210,11 @@ function loadThemeRoot(root: string, builtin: boolean) {
       assertContained(rootPath, cssPath);
       const css = readBoundedFile(cssPath, MAX_STYLESHEET_BYTES);
       validateThemeCss(css);
-      const revision = createHash("sha256").update(JSON.stringify(manifest)).update("\0").update(css).digest("hex").slice(0, 16);
-      themes.push({ ...manifest, builtin, css, revision });
+      const mascotAsset = manifest.mascot
+        ? readMascotAsset(rootPath, directory, manifest.mascot)
+        : undefined;
+      const revision = createHash("sha256").update(JSON.stringify(manifest)).update("\0").update(css).update("\0").update(mascotAsset ?? Buffer.alloc(0)).digest("hex").slice(0, 16);
+      themes.push({ ...manifest, builtin, css, revision, mascotAsset });
     } catch {
       ignoredCount += 1;
     }
@@ -188,6 +237,16 @@ function readBoundedFile(path: string, maxBytes: number) {
   return readFileSync(path, "utf8");
 }
 
+function readMascotAsset(rootPath: string, directory: string, mascot: MascotManifest) {
+  const assetPath = join(directory, mascot.asset);
+  assertContained(rootPath, assetPath);
+  const fileStat = lstatSync(assetPath);
+  if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.size > MAX_MASCOT_BYTES) throw new Error("invalid mascot asset");
+  const body = readFileSync(assetPath);
+  validatePngAsset(body);
+  return body;
+}
+
 function assertContained(rootPath: string, path: string) {
   const target = realpathSync(path);
   if (target !== rootPath && !target.startsWith(`${rootPath}${sep}`)) throw new Error("theme path escapes root");
@@ -196,7 +255,7 @@ function assertContained(rootPath: string, path: string) {
 function parseManifest(text: string, directoryName: string): ThemeManifest {
   if (Buffer.byteLength(text, "utf8") > MAX_MANIFEST_BYTES) throw new Error("theme manifest too large");
   const value = JSON.parse(text) as Partial<ThemeManifest>;
-  if (value.schemaVersion !== THEME_SCHEMA_VERSION) throw new Error("unsupported theme schema");
+  if (value.schemaVersion !== THEME_SCHEMA_VERSION && value.schemaVersion !== MASCOT_THEME_SCHEMA_VERSION) throw new Error("unsupported theme schema");
   if (!validThemeId(value.id) || value.id !== directoryName) throw new Error("theme id mismatch");
   if (!validText(value.name, 48) || !validText(value.subtitle, 64)) throw new Error("invalid theme label");
   if (value.description !== undefined && !validText(value.description, 180)) throw new Error("invalid theme description");
@@ -205,7 +264,48 @@ function parseManifest(text: string, directoryName: string): ThemeManifest {
   }
   if (value.colorScheme !== "light" && value.colorScheme !== "dark") throw new Error("invalid color scheme");
   if (value.entry !== "theme.css") throw new Error("theme entry must be theme.css");
+  if (value.schemaVersion === MASCOT_THEME_SCHEMA_VERSION) {
+    if (!value.mascot || typeof value.mascot !== "object") throw new Error("mascot configuration required");
+    value.mascot = parseMascot(value.mascot);
+  } else if (value.mascot !== undefined) {
+    throw new Error("mascot requires schema 2");
+  }
   return value as ThemeManifest;
+}
+
+function parseMascot(value: unknown): MascotManifest {
+  if (!value || typeof value !== "object") throw new Error("invalid mascot configuration");
+  const mascot = value as Partial<MascotManifest>;
+  if (typeof mascot.asset !== "string" || !SAFE_MASCOT_ASSET.test(mascot.asset)) throw new Error("invalid mascot asset path");
+  if (!MASCOT_SLOTS.includes(mascot.slot as MascotSlot)) throw new Error("invalid mascot slot");
+  if (!validMascotSize(mascot.desktopSize) || !validMascotSize(mascot.mobileSize)) throw new Error("invalid mascot size");
+  if (!mascot.states || typeof mascot.states !== "object") throw new Error("invalid mascot states");
+  const states = mascot.states as Partial<Record<MascotState, unknown>>;
+  const requiredStates: MascotState[] = ["idle", "walk", "syncing", "success", "empty", "error"];
+  for (const state of requiredStates) {
+    if (!MASCOT_ACTIONS.includes(states[state] as MascotAction)) throw new Error(`invalid mascot action for ${state}`);
+  }
+  return {
+    asset: mascot.asset,
+    slot: mascot.slot as MascotSlot,
+    desktopSize: mascot.desktopSize as number,
+    mobileSize: mascot.mobileSize as number,
+    states: Object.fromEntries(requiredStates.map((state) => [state, states[state]])) as Record<MascotState, MascotAction>,
+  };
+}
+
+function validMascotSize(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 48 && value <= 180;
+}
+
+function validatePngAsset(body: Buffer) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (body.length < 33 || !body.subarray(0, 8).equals(signature) || body.toString("ascii", 12, 16) !== "IHDR") throw new Error("mascot asset must be PNG");
+  const width = body.readUInt32BE(16);
+  const height = body.readUInt32BE(20);
+  const colorType = body[25];
+  if (!width || !height || width > MAX_MASCOT_DIMENSION || height > MAX_MASCOT_DIMENSION || width * height > MAX_MASCOT_PIXELS) throw new Error("mascot asset dimensions too large");
+  if (colorType !== 4 && colorType !== 6) throw new Error("mascot PNG must include alpha");
 }
 
 export function validateThemeCss(css: string) {
@@ -251,6 +351,12 @@ function publicTheme(theme: LoadedTheme): PublicThemePack {
     colorScheme: theme.colorScheme,
     builtin: theme.builtin,
     revision: theme.revision,
+    mascot: theme.mascot ? {
+      slot: theme.mascot.slot,
+      desktopSize: theme.mascot.desktopSize,
+      mobileSize: theme.mascot.mobileSize,
+      states: theme.mascot.states,
+    } : undefined,
   };
 }
 

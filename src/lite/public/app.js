@@ -2,6 +2,12 @@ const token = document.querySelector('meta[name="vibe-tree-token"]').content;
 const fallbackPalette = ["#F4515B", "#FFD447", "#4387F5", "#18A980", "#FF8E73", "#66C7EE", "#AEDA6D", "#E99A2B"];
 const themeSelect = document.querySelector("#theme-select");
 const themeStylesheet = document.querySelector("#theme-stylesheet");
+const mascotStage = document.querySelector("#theme-mascot");
+const mascotPet = document.querySelector("#theme-mascot-pet");
+const mascotImage = document.querySelector("#theme-mascot-image");
+let mascotWalkTimer;
+let mascotActivityToken = 0;
+let mascotState = "idle";
 let palette = [...fallbackPalette];
 let toastTimer;
 let dashboardData;
@@ -17,6 +23,9 @@ document.querySelector("#auth-actions").addEventListener("click", (event) => {
     mutate("/api/connect-github", "GitHub 已连接", button, "等待 GitHub 授权…");
   }
 });
+document.addEventListener("visibilitychange", () => mascotStage.classList.toggle("is-paused", document.hidden));
+window.addEventListener("resize", updateMascotGeometry, { passive: true });
+mascotImage.addEventListener("error", () => { mascotStage.hidden = true; });
 
 await refreshThemes();
 await refresh();
@@ -59,6 +68,7 @@ async function selectTheme(id) {
 }
 
 function renderThemeCatalog(catalog) {
+  const previousKey = themeCatalog?.active ? `${themeCatalog.active.id}:${themeCatalog.active.revision}` : "";
   themeCatalog = catalog;
   themeSelect.replaceChildren();
   for (const theme of catalog.themes || []) {
@@ -77,6 +87,58 @@ function renderThemeCatalog(catalog) {
   setText("theme-subtitle", catalog.active.subtitle);
   document.querySelector(".brand").setAttribute("aria-label", `Vibe Tree Lite · ${catalog.active.name} 首页`);
   document.title = `Vibe Tree Lite · ${catalog.active.name}`;
+  configureMascot(catalog.active, previousKey !== `${catalog.active.id}:${catalog.active.revision}`);
+}
+
+function configureMascot(theme, changed) {
+  clearTimeout(mascotWalkTimer);
+  if (!theme?.mascot) {
+    mascotStage.hidden = true;
+    mascotImage.removeAttribute("src");
+    mascotPet.dataset.state = "idle";
+    mascotPet.dataset.action = "idle-bob";
+    return;
+  }
+  mascotStage.hidden = false;
+  mascotStage.dataset.slot = theme.mascot.slot;
+  mascotStage.style.setProperty("--mascot-desktop-size", `${theme.mascot.desktopSize}px`);
+  mascotStage.style.setProperty("--mascot-mobile-size", `${theme.mascot.mobileSize}px`);
+  mascotImage.src = `/theme-mascot?v=${encodeURIComponent(theme.revision)}-${Date.now()}`;
+  requestAnimationFrame(updateMascotGeometry);
+  if (changed) {
+    setMascotState("idle");
+    scheduleMascotWalk();
+  }
+}
+
+function updateMascotGeometry() {
+  if (mascotStage.hidden) return;
+  const petWidth = mascotPet.getBoundingClientRect().width;
+  const travel = Math.max(0, mascotStage.clientWidth - petWidth - 24);
+  mascotStage.style.setProperty("--mascot-travel", `${Math.round(travel)}px`);
+}
+
+function setMascotState(state, durationMs = 0) {
+  if (!themeCatalog?.active?.mascot) return;
+  const action = themeCatalog.active.mascot.states[state] || themeCatalog.active.mascot.states.idle;
+  const activityToken = ++mascotActivityToken;
+  mascotState = state;
+  mascotPet.dataset.state = state;
+  mascotPet.dataset.action = action;
+  if (durationMs) {
+    window.setTimeout(() => {
+      if (activityToken === mascotActivityToken) setMascotState("idle");
+    }, durationMs);
+  }
+}
+
+function scheduleMascotWalk() {
+  clearTimeout(mascotWalkTimer);
+  if (!themeCatalog?.active?.mascot) return;
+  mascotWalkTimer = window.setTimeout(() => {
+    if (mascotState === "idle") setMascotState("walk", 9000);
+    scheduleMascotWalk();
+  }, 15000 + Math.round(Math.random() * 5000));
 }
 
 function reloadThemeStylesheet(revision) {
@@ -106,6 +168,7 @@ async function refresh() {
     render(await response.json());
   } catch (error) {
     setSyncState("warn", error.message || "服务暂时不可用");
+    setMascotState("error", 1800);
   }
 }
 
@@ -114,6 +177,7 @@ async function mutate(path, successMessage, button, busyLabel = "正在处理…
   button.disabled = true;
   button.textContent = busyLabel;
   setSyncState("", busyLabel);
+  if (path === "/api/sync" || path.startsWith("/api/connect-")) setMascotState("syncing");
   try {
     const response = await fetch(path, {
       method: "POST",
@@ -124,10 +188,12 @@ async function mutate(path, successMessage, button, busyLabel = "正在处理…
       throw new Error(result.error || result.cloud?.error || result.leaderboard?.error || "操作未完成");
     }
     showToast(successMessage);
+    if (path === "/api/sync" || path.startsWith("/api/connect-")) setMascotState("success", 1500);
     await refresh();
   } catch (error) {
     showToast(error.message || "操作失败");
     setSyncState("warn", "需要处理");
+    if (path === "/api/sync" || path.startsWith("/api/connect-")) setMascotState("error", 1800);
   } finally {
     button.disabled = false;
     button.textContent = originalLabel;
@@ -225,6 +291,8 @@ function renderChart(days, context) {
   setText("axis-max", compact(max));
   setText("axis-mid", compact(max / 2));
   empty.hidden = max > 0;
+  if (max === 0 && mascotState !== "empty") setMascotState("empty");
+  else if (max > 0 && mascotState === "empty") setMascotState("idle");
   chart.classList.toggle("is-filtered", Boolean(selectedModel));
   chart.setAttribute("aria-label", selectedModel
     ? `最近 30 天 ${selectedModel} 每日 Token 消耗，当前已高亮`
