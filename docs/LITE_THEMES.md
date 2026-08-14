@@ -77,8 +77,8 @@ network policy, and application code controlled by Lite.
     "asset": "assets/mascot.png",
     "slot": "chart-rail",
     "motion": "static",
-    "desktopSize": 132,
-    "mobileSize": 72,
+    "desktopSize": 96,
+    "mobileSize": 64,
     "states": {
       "idle": "idle-bob",
       "walk": "rail-walk",
