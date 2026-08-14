@@ -132,7 +132,7 @@ try {
   assert(dashboard.topModel === "gpt-5.6", "top model");
   assert(dashboard.chart.at(-1).models["o4-mini"] === 500, "per-model chart");
   assert(html.includes("Vibe Tree Lite · 阳光积木") && html.includes("Sunlit Blocks") && !html.includes("__VIBE_TREE_CSRF_TOKEN__"), "Sunlit Blocks dashboard branding and CSRF injection");
-  assert(html.includes('id="theme-select"') && html.includes('href="/theme.css"') && !html.includes("Prism Orbit") && !html.includes("流光星环"), "theme selector and stylesheet without Prism Orbit");
+  assert(html.includes('id="theme-button"') && html.includes('id="theme-popover"') && html.includes('id="theme-select"') && html.includes('href="/theme.css"') && !html.includes("Prism Orbit") && !html.includes("流光星环"), "compact theme menu and stylesheet without Prism Orbit");
   assert(
     html.includes('href="https://github.com/bzbj/vibe-tree-lite"') &&
     html.includes('href="https://github.com/Olorinm/vibe-tree"') &&
@@ -143,7 +143,7 @@ try {
   assert(!html.includes('id="rank-list"') && !html.includes("LEADERBOARD") && html.includes('data-action="connect-github"'), "single GitHub connection control without leaderboard");
   assert(app.includes("GitHub · ${username}"), "GitHub username in the top sync state");
   assert(app.includes('mutate("/api/connect-github"'), "GitHub connection action");
-  assert(app.includes('fetch("/api/themes"') && app.includes('fetch("/api/theme"'), "theme catalog and selection actions");
+  assert(app.includes('fetch("/api/themes"') && app.includes('fetch("/api/theme"') && app.includes("renderThemeOptions") && app.includes("handleThemeMenuKeydown"), "theme catalog and popover selection actions");
   assert(app.includes("setMascotState") && app.includes("/theme-mascot"), "declarative mascot runtime and asset route");
   assert(css.includes(".mascot-rail") && css.includes("prefers-reduced-motion"), "mascot rail and reduced-motion fallback");
   assert(css.includes(".bar-segment:active") && css.includes("transform: scale(0.97)") && !css.includes("dopamine-pop") && !app.includes("is-popping"), "restrained tile click feedback assets");

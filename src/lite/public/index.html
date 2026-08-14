@@ -22,12 +22,24 @@
           </span>
         </a>
         <div class="toolbar">
-          <label class="theme-picker" title="切换本地主题包">
-            <span>主题</span>
-            <select id="theme-select" aria-label="选择主题包" disabled>
+          <div class="theme-menu" id="theme-menu">
+            <button class="theme-button" id="theme-button" type="button" aria-label="选择主题包" aria-haspopup="menu" aria-expanded="false" title="选择主题" disabled>
+              <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3.25a8.75 8.75 0 1 0 0 17.5h1.9a1.85 1.85 0 0 0 1.23-3.23 1.85 1.85 0 0 1 1.23-3.23h1.89A3.5 3.5 0 0 0 21.75 11c0-4.28-4.37-7.75-9.75-7.75Z"></path>
+                <circle cx="7.7" cy="10" r="1.05"></circle>
+                <circle cx="11" cy="7.1" r="1.05"></circle>
+                <circle cx="15" cy="7.7" r="1.05"></circle>
+                <circle cx="17.3" cy="10.8" r="1.05"></circle>
+              </svg>
+              <span class="sr-only">主题</span>
+            </button>
+            <div class="theme-popover" id="theme-popover" role="menu" aria-label="选择主题包" hidden>
+              <div class="theme-options" id="theme-options"></div>
+            </div>
+            <select id="theme-select" class="theme-select-fallback" aria-label="选择主题包" tabindex="-1" aria-hidden="true" disabled>
               <option>阳光积木</option>
             </select>
-          </label>
+          </div>
           <span class="freshness" id="freshness">正在读取本地统计…</span>
           <div class="sync-state" id="sync-state" role="status" aria-live="polite">
             <span class="status-dot"></span>

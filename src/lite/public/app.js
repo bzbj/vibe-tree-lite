@@ -1,6 +1,10 @@
 const token = document.querySelector('meta[name="vibe-tree-token"]').content;
 const fallbackPalette = ["#F4515B", "#FFD447", "#4387F5", "#18A980", "#FF8E73", "#66C7EE", "#AEDA6D", "#E99A2B"];
 const themeSelect = document.querySelector("#theme-select");
+const themeButton = document.querySelector("#theme-button");
+const themeMenu = document.querySelector("#theme-menu");
+const themePopover = document.querySelector("#theme-popover");
+const themeOptions = document.querySelector("#theme-options");
 const themeStylesheet = document.querySelector("#theme-stylesheet");
 const mascotStage = document.querySelector("#theme-mascot");
 const mascotPet = document.querySelector("#theme-mascot-pet");
@@ -16,7 +20,12 @@ let themeCatalog;
 
 document.querySelector("#sync-button").addEventListener("click", (event) => mutate("/api/sync", "同步完成", event.currentTarget, "同步中…"));
 document.querySelector("#clear-model").addEventListener("click", () => selectModel());
+themeButton.addEventListener("click", () => setThemeMenu(themePopover.hidden, true));
 themeSelect.addEventListener("change", () => selectTheme(themeSelect.value));
+document.addEventListener("pointerdown", (event) => {
+  if (!themeMenu.contains(event.target)) setThemeMenu(false);
+});
+document.addEventListener("keydown", handleThemeMenuKeydown);
 document.querySelector("#auth-actions").addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (button?.dataset.action === "connect-github") {
@@ -39,13 +48,16 @@ async function refreshThemes() {
     refreshPalette();
   } catch (error) {
     themeSelect.disabled = true;
+    themeButton.disabled = true;
     themeSelect.title = error.message || "主题包不可用";
   }
 }
 
 async function selectTheme(id) {
   const previousId = themeCatalog?.activeId;
+  setThemeMenu(false);
   themeSelect.disabled = true;
+  themeButton.disabled = true;
   try {
     const response = await fetch("/api/theme", {
       method: "POST",
@@ -61,9 +73,11 @@ async function selectTheme(id) {
     showToast(`已切换到 ${result.active.name}`);
   } catch (error) {
     if (previousId) themeSelect.value = previousId;
+    if (themeCatalog) renderThemeOptions(themeCatalog);
     showToast(error.message || "主题切换失败");
   } finally {
     themeSelect.disabled = !themeCatalog?.themes?.length;
+    themeButton.disabled = !themeCatalog?.themes?.length;
   }
 }
 
@@ -79,7 +93,10 @@ function renderThemeCatalog(catalog) {
   }
   themeSelect.value = catalog.activeId;
   themeSelect.disabled = !(catalog.themes || []).length;
+  themeButton.disabled = !(catalog.themes || []).length;
+  themeButton.setAttribute("aria-label", `选择主题包，当前 ${catalog.active.name}`);
   themeSelect.title = catalog.active.description || `${catalog.active.author} · ${catalog.active.version}`;
+  renderThemeOptions(catalog);
   document.documentElement.dataset.theme = catalog.activeId;
   document.documentElement.style.colorScheme = catalog.active.colorScheme;
   document.querySelector('meta[name="color-scheme"]').content = catalog.active.colorScheme;
@@ -88,6 +105,66 @@ function renderThemeCatalog(catalog) {
   document.querySelector(".brand").setAttribute("aria-label", `Vibe Tree Lite · ${catalog.active.name} 首页`);
   document.title = `Vibe Tree Lite · ${catalog.active.name}`;
   configureMascot(catalog.active, previousKey !== `${catalog.active.id}:${catalog.active.revision}`);
+}
+
+function renderThemeOptions(catalog) {
+  themeOptions.replaceChildren();
+  for (const theme of catalog.themes || []) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "theme-option";
+    option.dataset.themeId = theme.id;
+    option.dataset.active = String(theme.id === catalog.activeId);
+    option.setAttribute("role", "menuitemradio");
+    option.setAttribute("aria-checked", String(theme.id === catalog.activeId));
+    option.tabIndex = theme.id === catalog.activeId ? 0 : -1;
+    option.addEventListener("click", () => { void selectTheme(theme.id); });
+
+    const swatch = document.createElement("span");
+    swatch.className = "theme-option-swatch";
+    swatch.dataset.scheme = theme.colorScheme;
+    swatch.setAttribute("aria-hidden", "true");
+    const copy = document.createElement("span");
+    copy.className = "theme-option-copy";
+    const name = document.createElement("strong");
+    name.textContent = theme.name;
+    const subtitle = document.createElement("small");
+    subtitle.textContent = theme.subtitle;
+    copy.append(name, subtitle);
+    const check = document.createElement("span");
+    check.className = "theme-option-check";
+    check.setAttribute("aria-hidden", "true");
+    check.textContent = "✓";
+    option.append(swatch, copy, check);
+    themeOptions.append(option);
+  }
+}
+
+function setThemeMenu(open, focusActive = false) {
+  if (themeButton.disabled && open) return;
+  themePopover.hidden = !open;
+  themeButton.setAttribute("aria-expanded", String(open));
+  if (open && focusActive) {
+    requestAnimationFrame(() => themeOptions.querySelector(".theme-option[aria-checked=\"true\"]")?.focus());
+  }
+}
+
+function handleThemeMenuKeydown(event) {
+  if (event.key === "Escape" && !themePopover.hidden) {
+    event.preventDefault();
+    setThemeMenu(false);
+    themeButton.focus();
+    return;
+  }
+  if (themePopover.hidden || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const options = [...themeOptions.querySelectorAll(".theme-option")];
+  if (!options.length) return;
+  const current = Math.max(0, options.indexOf(document.activeElement));
+  const next = event.key === "Home" ? 0
+    : event.key === "End" ? options.length - 1
+      : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+  event.preventDefault();
+  options[next].focus();
 }
 
 function configureMascot(theme, changed) {
