@@ -35,11 +35,13 @@ const REQUIRED_TOKENS = [
 
 type MascotAction = typeof MASCOT_ACTIONS[number];
 type MascotSlot = typeof MASCOT_SLOTS[number];
+type MascotMotion = "ambient" | "static";
 type MascotState = "idle" | "walk" | "syncing" | "success" | "empty" | "error";
 
 interface MascotManifest {
   asset: string;
   slot: MascotSlot;
+  motion: MascotMotion;
   desktopSize: number;
   mobileSize: number;
   states: Record<MascotState, MascotAction>;
@@ -82,6 +84,7 @@ export interface PublicThemePack {
   revision: string;
   mascot?: {
     slot: MascotSlot;
+    motion: MascotMotion;
     desktopSize: number;
     mobileSize: number;
     states: Record<MascotState, MascotAction>;
@@ -278,6 +281,8 @@ function parseMascot(value: unknown): MascotManifest {
   const mascot = value as Partial<MascotManifest>;
   if (typeof mascot.asset !== "string" || !SAFE_MASCOT_ASSET.test(mascot.asset)) throw new Error("invalid mascot asset path");
   if (!MASCOT_SLOTS.includes(mascot.slot as MascotSlot)) throw new Error("invalid mascot slot");
+  const motion = mascot.motion === undefined ? "ambient" : mascot.motion;
+  if (motion !== "ambient" && motion !== "static") throw new Error("invalid mascot motion");
   if (!validMascotSize(mascot.desktopSize) || !validMascotSize(mascot.mobileSize)) throw new Error("invalid mascot size");
   if (!mascot.states || typeof mascot.states !== "object") throw new Error("invalid mascot states");
   const states = mascot.states as Partial<Record<MascotState, unknown>>;
@@ -288,6 +293,7 @@ function parseMascot(value: unknown): MascotManifest {
   return {
     asset: mascot.asset,
     slot: mascot.slot as MascotSlot,
+    motion,
     desktopSize: mascot.desktopSize as number,
     mobileSize: mascot.mobileSize as number,
     states: Object.fromEntries(requiredStates.map((state) => [state, states[state]])) as Record<MascotState, MascotAction>,
@@ -353,6 +359,7 @@ function publicTheme(theme: LoadedTheme): PublicThemePack {
     revision: theme.revision,
     mascot: theme.mascot ? {
       slot: theme.mascot.slot,
+      motion: theme.mascot.motion,
       desktopSize: theme.mascot.desktopSize,
       mobileSize: theme.mascot.mobileSize,
       states: theme.mascot.states,

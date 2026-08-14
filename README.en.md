@@ -26,7 +26,7 @@ Lite does not include the desktop tree, weather, levels, achievements, share car
 
 ## Theme packs
 
-Lite bundles Sunlit Blocks and discovers local packs under `themes/<theme-id>/` in the Vibe Tree data directory. Each pack contains only `theme.json` and a constrained `theme.css` token block. A top-bar selection applies immediately and is persisted in Lite-only `lite-theme.json`. Refresh the page after adding or removing a pack to update the list.
+Lite bundles Sunlit Blocks and discovers local packs under `themes/<theme-id>/` in the Vibe Tree data directory. Each pack contains `theme.json` and a constrained `theme.css` token block; schema 2 packs may also include a transparent PNG mascot in the fixed lower-right `chart-rail` slot. A top-bar selection applies immediately and is persisted in Lite-only `lite-theme.json`. Refresh the page after adding or removing a pack to update the list.
 
 Theme packs cannot execute JavaScript, import remote CSS, or read local files. See [Lite theme packs](docs/LITE_THEMES.md) for the format, platform install directories, and token contract.
 

@@ -35,6 +35,7 @@ try {
     subtitle: "Mascot Test",
     css: testThemeCss("mascot-test-loaded"),
     mascot: true,
+    motion: "static",
   });
   writeThemePack(themesRoot, "invalid-entry", {
     name: "错误入口",
@@ -148,7 +149,7 @@ try {
   assert(css.includes(".bar-segment:active") && css.includes("transform: scale(0.97)") && !css.includes("dopamine-pop") && !app.includes("is-popping"), "restrained tile click feedback assets");
   assert(css.includes("Primitive fallbacks") && css.includes("Semantic fallbacks") && css.includes("Component fallbacks"), "three-layer theme token surface");
   assert(themes.activeId === "sunlit-blocks" && themes.themes.length === 3, "bundled, CSS-only, and mascot themes are discovered");
-  assert(themes.themes.some((theme) => theme.id === "mascot-test" && theme.mascot?.slot === "chart-rail"), "mascot metadata is public without asset paths");
+  assert(themes.themes.some((theme) => theme.id === "mascot-test" && theme.mascot?.slot === "chart-rail" && theme.mascot.motion === "static"), "mascot metadata is public without asset paths");
   assert(themes.ignoredCount === 5 && !JSON.stringify(themes).includes(fixture) && !JSON.stringify(themes).includes("theme.css") && !JSON.stringify(themes).includes("assets/"), "invalid packs are ignored without exposing paths or entries");
   assert(defaultThemeResponse.headers.get("x-vibe-tree-theme") === "sunlit-blocks" && defaultThemeCss.includes("--vt-p-cream-100"), "default bundled theme stylesheet");
   assert(defaultMascotResponse.status === 404, "themes without mascots do not expose a mascot asset");
@@ -241,6 +242,7 @@ function writeThemePack(root, id, options) {
     manifest.mascot = {
       asset: options.mascot === true ? "assets/mascot.png" : options.mascot.asset,
       slot: "chart-rail",
+      motion: options.motion || "ambient",
       desktopSize: 132,
       mobileSize: 72,
       states: {

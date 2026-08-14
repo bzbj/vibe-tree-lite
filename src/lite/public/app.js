@@ -101,13 +101,14 @@ function configureMascot(theme, changed) {
   }
   mascotStage.hidden = false;
   mascotStage.dataset.slot = theme.mascot.slot;
+  mascotStage.dataset.motion = theme.mascot.motion || "ambient";
   mascotStage.style.setProperty("--mascot-desktop-size", `${theme.mascot.desktopSize}px`);
   mascotStage.style.setProperty("--mascot-mobile-size", `${theme.mascot.mobileSize}px`);
   mascotImage.src = `/theme-mascot?v=${encodeURIComponent(theme.revision)}-${Date.now()}`;
   requestAnimationFrame(updateMascotGeometry);
   if (changed) {
     setMascotState("idle");
-    scheduleMascotWalk();
+    if (theme.mascot.motion !== "static") scheduleMascotWalk();
   }
 }
 
@@ -134,7 +135,7 @@ function setMascotState(state, durationMs = 0) {
 
 function scheduleMascotWalk() {
   clearTimeout(mascotWalkTimer);
-  if (!themeCatalog?.active?.mascot) return;
+  if (!themeCatalog?.active?.mascot || themeCatalog.active.mascot.motion === "static") return;
   mascotWalkTimer = window.setTimeout(() => {
     if (mascotState === "idle") setMascotState("walk", 9000);
     scheduleMascotWalk();

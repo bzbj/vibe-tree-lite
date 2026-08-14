@@ -230,7 +230,7 @@ button:focus-visible, a:focus-visible {
   background: var(--paper);
   box-shadow: 6px 6px 0 var(--vt-panel-shadow);
 }
-.chart-panel { min-height: 395px; margin-top: 14px; padding: 17px 21px; }
+.chart-panel { position: relative; min-height: 395px; margin-top: 14px; padding: 17px 21px; }
 .panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 h2 { margin: 0; font: 800 21px/1.1 inherit; letter-spacing: -0.025em; }
 .chart-total { color: var(--muted); font-size: 11px; }
@@ -316,10 +316,15 @@ h2 { margin: 0; font: 800 21px/1.1 inherit; letter-spacing: -0.025em; }
 .empty-state { padding: 84px 20px; color: var(--muted); text-align: center; font-size: 13px; }
 
 .mascot-rail {
-  position: relative;
-  height: 108px;
-  margin: 8px -3px -3px;
-  overflow: hidden;
+  position: absolute;
+  right: 17px;
+  bottom: 9px;
+  z-index: 2;
+  width: 148px;
+  height: 154px;
+  margin: 0;
+  overflow: visible;
+  pointer-events: none;
   --mascot-desktop-size: 132px;
   --mascot-mobile-size: 72px;
   --mascot-travel: 0px;
@@ -327,17 +332,17 @@ h2 { margin: 0; font: 800 21px/1.1 inherit; letter-spacing: -0.025em; }
 .mascot-rail[hidden] { display: none; }
 .mascot-floor {
   position: absolute;
-  right: 4px;
-  bottom: 21px;
-  left: 4px;
+  right: 0;
+  bottom: 15px;
+  left: 0;
   border-top: 3px solid var(--vt-mascot-rail);
   border-radius: 999px;
   opacity: 0.78;
 }
 .mascot-pet {
   position: absolute;
-  right: 12px;
-  bottom: 21px;
+  right: 0;
+  bottom: 15px;
   width: var(--mascot-desktop-size);
   aspect-ratio: 1;
   transform-origin: 50% 100%;
@@ -345,6 +350,9 @@ h2 { margin: 0; font: 800 21px/1.1 inherit; letter-spacing: -0.025em; }
   will-change: transform;
 }
 .mascot-pet img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.mascot-rail[data-motion="static"] .mascot-pet { animation: none !important; transform: none !important; }
+.mascot-rail[data-motion="static"] .mascot-bubble,
+.mascot-rail[data-motion="static"] .mascot-spark { display: none; }
 .mascot-bubble {
   position: absolute;
   top: 2px;
@@ -524,9 +532,9 @@ footer a:hover { color: var(--red-strong); text-decoration-color: currentColor; 
   .chart-summary { align-items: end; flex-direction: column; gap: 7px; }
   .chart-wrap { grid-template-columns: 34px minmax(0, 1fr); height: 275px; }
   .chart { gap: 2px; }
-  .mascot-rail { height: 82px; margin-top: 3px; }
-  .mascot-floor { bottom: 15px; }
-  .mascot-pet { right: 6px; bottom: 15px; width: var(--mascot-mobile-size); }
+  .mascot-rail { right: 8px; bottom: 8px; width: 88px; height: 88px; }
+  .mascot-floor { bottom: 12px; }
+  .mascot-pet { right: 0; bottom: 12px; width: var(--mascot-mobile-size); }
   .mascot-pet[data-action="rail-walk"] { animation: mascot-idle-bob 3.8s ease-in-out infinite; }
   .mascot-bubble { top: -1px; right: 3px; font-size: 9px; }
   .mascot-spark { top: 3px; left: 2px; font-size: 19px; }

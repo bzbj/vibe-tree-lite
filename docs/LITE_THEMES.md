@@ -4,8 +4,8 @@ Vibe Tree Lite theme packs are local, declarative packages. Schema 1 packs are
 CSS-token-only and can change the dashboard's colors, surfaces, shadows,
 typography, radii, background, metric cards, and chart palette without changing
 HTML or JavaScript. Schema 2 adds an optional, sandboxed mascot asset that can
-appear in the fixed `chart-rail` slot and react to dashboard states; it still
-does not load theme JavaScript.
+appear in the fixed `chart-rail` slot; a pack can request a fixed decorative
+pet or host-owned ambient motion, but it still does not load theme JavaScript.
 
 ## Package layout
 
@@ -76,6 +76,7 @@ network policy, and application code controlled by Lite.
   "mascot": {
     "asset": "assets/mascot.png",
     "slot": "chart-rail",
+    "motion": "static",
     "desktopSize": 132,
     "mobileSize": 72,
     "states": {
@@ -90,14 +91,16 @@ network policy, and application code controlled by Lite.
 }
 ```
 
-The state names are controlled by Lite: `idle` is the normal dashboard state,
-`walk` is an occasional rail stroll, `syncing` is used during sync/connect
-actions, `success` follows a completed action, `empty` represents an empty
-chart, and `error` is a short warning reaction. A pack maps those states to
-the six built-in actions (`idle-bob`, `rail-walk`, `typing`, `hop-star`,
-`sleep`, `concerned`); it cannot inject its own animation or event handler.
-Lite pauses the mascot when the tab is hidden and disables motion under
-`prefers-reduced-motion: reduce`.
+`motion` is `static` or `ambient`. `static` keeps the asset fixed in the lower
+right of the chart panel with no animation; `ambient` enables Lite's optional
+host-owned reactions. For an ambient pack, the state names are controlled by
+Lite: `idle` is the normal dashboard state, `walk` is an occasional rail stroll,
+`syncing` is used during sync/connect actions, `success` follows a completed
+action, `empty` represents an empty chart, and `error` is a short warning
+reaction. A pack maps those states to the six built-in actions (`idle-bob`,
+`rail-walk`, `typing`, `hop-star`, `sleep`, `concerned`); it cannot inject its
+own animation or event handler. Lite pauses ambient motion when the tab is
+hidden and disables motion under `prefers-reduced-motion: reduce`.
 
 ## Three-layer token model
 
