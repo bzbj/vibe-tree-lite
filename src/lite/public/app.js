@@ -1,11 +1,16 @@
 const token = document.querySelector('meta[name="vibe-tree-token"]').content;
-const palette = ["#F4515B", "#FFD447", "#4387F5", "#18A980", "#FF8E73", "#66C7EE", "#AEDA6D", "#E99A2B"];
+const fallbackPalette = ["#F4515B", "#FFD447", "#4387F5", "#18A980", "#FF8E73", "#66C7EE", "#AEDA6D", "#E99A2B"];
+const themeSelect = document.querySelector("#theme-select");
+const themeStylesheet = document.querySelector("#theme-stylesheet");
+let palette = [...fallbackPalette];
 let toastTimer;
 let dashboardData;
 let selectedModel;
+let themeCatalog;
 
 document.querySelector("#sync-button").addEventListener("click", (event) => mutate("/api/sync", "同步完成", event.currentTarget, "同步中…"));
 document.querySelector("#clear-model").addEventListener("click", () => selectModel());
+themeSelect.addEventListener("change", () => selectTheme(themeSelect.value));
 document.querySelector("#auth-actions").addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (button?.dataset.action === "connect-github") {
@@ -13,8 +18,86 @@ document.querySelector("#auth-actions").addEventListener("click", (event) => {
   }
 });
 
+await refreshThemes();
 await refresh();
 setInterval(refresh, 30_000);
+
+async function refreshThemes() {
+  try {
+    const response = await fetch("/api/themes", { cache: "no-store" });
+    if (!response.ok) throw new Error(`主题读取失败 (${response.status})`);
+    renderThemeCatalog(await response.json());
+    refreshPalette();
+  } catch (error) {
+    themeSelect.disabled = true;
+    themeSelect.title = error.message || "主题包不可用";
+  }
+}
+
+async function selectTheme(id) {
+  const previousId = themeCatalog?.activeId;
+  themeSelect.disabled = true;
+  try {
+    const response = await fetch("/api/theme", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Vibe-Tree-Token": token },
+      body: JSON.stringify({ id }),
+    });
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || "主题切换失败");
+    await reloadThemeStylesheet(result.active.revision);
+    renderThemeCatalog(result);
+    refreshPalette();
+    if (dashboardData) render(dashboardData);
+    showToast(`已切换到 ${result.active.name}`);
+  } catch (error) {
+    if (previousId) themeSelect.value = previousId;
+    showToast(error.message || "主题切换失败");
+  } finally {
+    themeSelect.disabled = !themeCatalog?.themes?.length;
+  }
+}
+
+function renderThemeCatalog(catalog) {
+  themeCatalog = catalog;
+  themeSelect.replaceChildren();
+  for (const theme of catalog.themes || []) {
+    const option = document.createElement("option");
+    option.value = theme.id;
+    option.textContent = `${theme.name} · ${theme.subtitle}`;
+    themeSelect.append(option);
+  }
+  themeSelect.value = catalog.activeId;
+  themeSelect.disabled = !(catalog.themes || []).length;
+  themeSelect.title = catalog.active.description || `${catalog.active.author} · ${catalog.active.version}`;
+  document.documentElement.dataset.theme = catalog.activeId;
+  document.documentElement.style.colorScheme = catalog.active.colorScheme;
+  document.querySelector('meta[name="color-scheme"]').content = catalog.active.colorScheme;
+  setText("theme-name", `· ${catalog.active.name}`);
+  setText("theme-subtitle", catalog.active.subtitle);
+  document.querySelector(".brand").setAttribute("aria-label", `Vibe Tree Lite · ${catalog.active.name} 首页`);
+  document.title = `Vibe Tree Lite · ${catalog.active.name}`;
+}
+
+function reloadThemeStylesheet(revision) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      themeStylesheet.removeEventListener("load", loaded);
+      themeStylesheet.removeEventListener("error", failed);
+    };
+    const loaded = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new Error("主题样式加载失败")); };
+    themeStylesheet.addEventListener("load", loaded, { once: true });
+    themeStylesheet.addEventListener("error", failed, { once: true });
+    themeStylesheet.href = `/theme.css?v=${encodeURIComponent(revision)}-${Date.now()}`;
+  });
+}
+
+function refreshPalette() {
+  const styles = getComputedStyle(document.documentElement);
+  const themed = Array.from({ length: 8 }, (_, index) => styles.getPropertyValue(`--vt-chart-${index + 1}`).trim()).filter(Boolean);
+  palette = themed.length >= 2 ? themed : [...fallbackPalette];
+}
 
 async function refresh() {
   try {

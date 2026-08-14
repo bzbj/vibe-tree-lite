@@ -8,6 +8,7 @@
     <title>Vibe Tree Lite · 阳光积木</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
+    <link id="theme-stylesheet" rel="stylesheet" href="/theme.css">
     <script src="/app.js" type="module"></script>
   </head>
   <body>
@@ -16,11 +17,17 @@
         <a class="brand" href="/" aria-label="Vibe Tree Lite · 阳光积木 首页">
           <span class="brand-mark" aria-hidden="true">V</span>
           <span class="brand-copy">
-            <strong><span class="brand-base">Vibe Tree Lite</span><span class="brand-theme">· 阳光积木</span></strong>
-            <small>Sunlit Blocks</small>
+            <strong><span class="brand-base">Vibe Tree Lite</span><span class="brand-theme" id="theme-name">· 阳光积木</span></strong>
+            <small id="theme-subtitle">Sunlit Blocks</small>
           </span>
         </a>
         <div class="toolbar">
+          <label class="theme-picker" title="切换本地主题包">
+            <span>主题</span>
+            <select id="theme-select" aria-label="选择主题包" disabled>
+              <option>阳光积木</option>
+            </select>
+          </label>
           <span class="freshness" id="freshness">正在读取本地统计…</span>
           <div class="sync-state" id="sync-state" role="status" aria-live="polite">
             <span class="status-dot"></span>

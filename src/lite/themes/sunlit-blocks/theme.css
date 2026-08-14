@@ -1,0 +1,71 @@
+/* Primitive tokens */
+:root {
+  --vt-p-cream-100: #fff5e6;
+  --vt-p-paper-50: #fffdf7;
+  --vt-p-ink-900: #20213f;
+  --vt-p-ink-600: #686c83;
+  --vt-p-sand-400: #c9bfa8;
+  --vt-p-sand-200: #e5dcc8;
+  --vt-p-red-500: #f4515b;
+  --vt-p-red-700: #c93650;
+  --vt-p-yellow-400: #ffd447;
+  --vt-p-blue-500: #4387f5;
+  --vt-p-sky-400: #66c7ee;
+  --vt-p-green-600: #18a980;
+  --vt-p-mint-400: #74d7cf;
+  --vt-p-orange-400: #ff8e73;
+
+  /* Semantic tokens */
+  --vt-color-scheme: light;
+  --vt-color-background: var(--vt-p-cream-100);
+  --vt-color-surface: var(--vt-p-paper-50);
+  --vt-color-foreground: var(--vt-p-ink-900);
+  --vt-color-muted: var(--vt-p-ink-600);
+  --vt-color-border: var(--vt-p-sand-400);
+  --vt-color-border-soft: var(--vt-p-sand-200);
+  --vt-color-primary: var(--vt-p-red-500);
+  --vt-color-primary-strong: var(--vt-p-red-700);
+  --vt-color-secondary: var(--vt-p-yellow-400);
+  --vt-color-focus: var(--vt-p-blue-500);
+  --vt-color-info: var(--vt-p-sky-400);
+  --vt-color-success: var(--vt-p-green-600);
+  --vt-color-accent: var(--vt-p-mint-400);
+  --vt-color-warm: var(--vt-p-orange-400);
+  --vt-color-on-primary: #ffffff;
+  --vt-color-surface-hover: #f5f0e5;
+  --vt-color-chart-track: #f2ecdf;
+  --vt-color-connect-surface: #fff2c9;
+
+  /* Component tokens */
+  --vt-font-sans: "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --vt-panel-radius: 20px;
+  --vt-body-background: radial-gradient(circle at 5% -8%, rgba(244, 81, 91, 0.16), transparent 25rem), radial-gradient(circle at 88% -4%, rgba(255, 212, 71, 0.26), transparent 24rem), radial-gradient(circle at 102% 68%, rgba(102, 199, 238, 0.17), transparent 29rem), radial-gradient(circle at 10% 108%, rgba(116, 215, 207, 0.18), transparent 27rem), var(--vt-color-background);
+  --vt-button-bg: var(--vt-color-primary);
+  --vt-button-bg-hover: var(--vt-color-primary-strong);
+  --vt-button-fg: var(--vt-color-on-primary);
+  --vt-button-shadow: var(--vt-color-secondary);
+  --vt-panel-shadow: var(--vt-color-border-soft);
+  --vt-metric-1-bg: var(--vt-color-primary);
+  --vt-metric-1-fg: var(--vt-color-on-primary);
+  --vt-metric-1-shadow: var(--vt-color-secondary);
+  --vt-metric-2-bg: var(--vt-color-secondary);
+  --vt-metric-2-shadow: var(--vt-color-primary);
+  --vt-metric-3-bg: var(--vt-color-info);
+  --vt-metric-3-shadow: var(--vt-color-accent);
+  --vt-metric-4-bg: var(--vt-color-accent);
+  --vt-metric-4-shadow: var(--vt-color-focus);
+  --vt-tooltip-bg: var(--vt-color-foreground);
+  --vt-tooltip-fg: var(--vt-color-on-primary);
+  --vt-tooltip-shadow: var(--vt-color-secondary);
+  --vt-toast-bg: var(--vt-color-primary);
+  --vt-toast-fg: var(--vt-color-on-primary);
+  --vt-toast-shadow: var(--vt-color-secondary);
+  --vt-chart-1: #f4515b;
+  --vt-chart-2: #ffd447;
+  --vt-chart-3: #4387f5;
+  --vt-chart-4: #18a980;
+  --vt-chart-5: #ff8e73;
+  --vt-chart-6: #66c7ee;
+  --vt-chart-7: #aeda6d;
+  --vt-chart-8: #e99a2b;
+}

@@ -14,6 +14,7 @@
 - 今日、最近 30 日和累计 Token 汇总。
 - 最近 30 天的每日柱状图，并按模型堆叠显示。
 - 点击模型图例或柱状图方块进行高亮、筛选和查看占比。
+- 可同时装载多个本地 CSS token 主题包，并在顶栏即时切换和记住选择。
 - 使用同一个 GitHub 账号，在 macOS 与 Windows 之间同步聚合后的 Token 数据。
 - 与原版 Vibe Tree 相同的本地历史和云同步协议。
 
@@ -22,6 +23,12 @@ Lite 不包含桌面树、天气、等级、成就、分享卡片、排行榜页
 ### 手机窄屏
 
 <img src="docs/images/vibe-tree-lite-sunlit-blocks-mobile.png" width="390" alt="Vibe Tree Lite 阳光积木手机版">
+
+## 主题包
+
+Lite 内置“阳光积木”，并会发现 Vibe Tree 数据目录下 `themes/<theme-id>/` 中的本地主题包。每个包只包含 `theme.json` 与受限的 `theme.css` token；在顶栏选择后立即生效，并保存到 Lite 专用的 `lite-theme.json`。新增或删除主题包后刷新页面即可更新列表。
+
+主题包不能运行 JavaScript、导入远程 CSS 或读取本地文件。完整格式、安装目录和 token 清单见 [Lite 主题包说明](docs/LITE_THEMES.md)。
 
 ## 环境要求
 
@@ -136,6 +143,7 @@ npm run typecheck
 
 - HTTP 服务只监听 `127.0.0.1`。
 - 写操作需要随机页面令牌和同源请求。
+- 主题选择同样受页面令牌保护；无效、越界、远程资源或过大的主题包会被忽略。
 - 页面 API 不返回 GitHub bearer token、设备 ID、本地路径或其他用户资料。
 - 默认沿用原版 Vibe Tree 的本地数据目录，升级和卸载 Lite 都不会主动删除历史数据。
 

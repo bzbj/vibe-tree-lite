@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "sunlit-blocks",
+  "name": "阳光积木",
+  "subtitle": "Sunlit Blocks",
+  "description": "明亮纸张、彩色积木与克制的块状阴影。",
+  "author": "Vibe Tree Lite",
+  "version": "1.0.0",
+  "colorScheme": "light",
+  "entry": "theme.css"
+}
