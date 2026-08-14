@@ -15,6 +15,7 @@
     "src/lite/**/*.ts",
     "src/electron/agentSessionWatchers.ts",
     "src/electron/codexSessionWatcher.ts",
+    "src/electron/deepseekSessionWatcher.ts",
     "src/electron/i18n.ts",
     "src/electron/leaderboard.ts",
     "src/shared/**/*.ts"

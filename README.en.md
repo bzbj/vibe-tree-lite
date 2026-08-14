@@ -10,10 +10,11 @@ A local token dashboard and multi-device sync service without Electron. Only a N
 
 ## What stays
 
-- Local usage watchers for Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, and Kimi Code.
+- Local usage watchers for Codex, Claude Code, OpenClaw, Pi Agent, OpenCode, Gemini, Hermes, Kimi Code, and DeepSeek Harness.
 - Today, recent 30-day, and all-time token totals.
 - A 30-day daily bar chart stacked by model.
 - Clickable model legends and chart blocks for highlighting, filtering, and inspecting each model's share.
+- Multiple local CSS-token theme packs, with instant switching and persisted selection in the top bar.
 - Aggregate token sync between macOS and Windows through the same GitHub account.
 - The original Vibe Tree local history and cloud-sync protocol.
 
@@ -22,6 +23,12 @@ Lite does not include the desktop tree, weather, levels, achievements, share car
 ### Narrow-screen layout
 
 <img src="docs/images/vibe-tree-lite-sunlit-blocks-mobile.png" width="390" alt="Vibe Tree Lite Sunlit Blocks mobile dashboard">
+
+## Theme packs
+
+Lite bundles Sunlit Blocks and discovers local packs under `themes/<theme-id>/` in the Vibe Tree data directory. Each pack contains only `theme.json` and a constrained `theme.css` token block. A top-bar selection applies immediately and is persisted in Lite-only `lite-theme.json`. Refresh the page after adding or removing a pack to update the list.
+
+Theme packs cannot execute JavaScript, import remote CSS, or read local files. See [Lite theme packs](docs/LITE_THEMES.md) for the format, platform install directories, and token contract.
 
 ## Requirements
 
@@ -106,8 +113,11 @@ Sync contains token aggregates grouped by day, device, source, and model. Code, 
 | Gemini | local Gemini session directory |
 | Hermes | local Hermes session directory |
 | Kimi Code | `~/.kimi-code/sessions/**/wire.jsonl` |
+| DeepSeek Harness | macOS/Linux: `$HOME/.dsh/sessions/**/session.jsonl[.zstd]`; Windows: `%USERPROFILE%\.dsh\sessions\**\session.jsonl[.zstd]`; `$DSH_HOME/sessions` is also supported |
 
 Available sources are detected automatically. Do not run Electron Vibe Tree and Vibe Tree Lite at the same time: both use the same watcher offsets and event file.
+
+DeepSeek Harness counts new usage written after the watcher starts by default. Override the session root with `VIBE_DEEPSEEK_SESSIONS_DIR`, or set `VIBE_DEEPSEEK_IMPORT_HISTORY=today` to import today's history. See [DeepSeek Harness integration](docs/DEEPSEEK_HARNESS.md) for implementation and manual verification details.
 
 ## Run manually and validate
 
@@ -123,6 +133,7 @@ Project checks:
 
 ```bash
 npm run test:lite
+npm run test:deepseek-watcher
 npm run typecheck
 ```
 
@@ -132,6 +143,7 @@ See [LITE.md](LITE.md) for port, data-directory, and self-hosted sync configurat
 
 - HTTP listens only on `127.0.0.1`.
 - Mutating requests require a random page token and same-origin request.
+- Theme selection uses the same page-token boundary; invalid, escaping, remote-resource, or oversized packs are ignored.
 - Page APIs do not expose the GitHub bearer token, device ID, local paths, or other users' profiles.
 - Lite reuses the original Vibe Tree data directory by default; updates and uninstallers do not delete history.
 

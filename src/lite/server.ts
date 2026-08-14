@@ -10,6 +10,7 @@ import { APP_NAME } from "../shared/appMetadata.js";
 import { MAIN_TEXT } from "../electron/i18n.js";
 import { createLeaderboardService, type LeaderboardRequestJsonOptions } from "../electron/leaderboard.js";
 import { startCodexSessionWatcher } from "../electron/codexSessionWatcher.js";
+import { startDeepSeekSessionWatcher } from "../electron/deepseekSessionWatcher.js";
 import {
   startClaudeSessionWatcher,
   startGeminiSessionWatcher,
@@ -20,18 +21,28 @@ import {
   startPiSessionWatcher,
 } from "../electron/agentSessionWatchers.js";
 import { LiteStore } from "./store.js";
+import { LiteThemePacks } from "./themePacks.js";
 
-const VERSION = "0.8.2-lite.1";
+const VERSION = "0.8.2-lite.2";
 const DEFAULT_API_URL = "https://vibe-tree-leaderboard.melanthascherffmugutubu.workers.dev";
 const PORT = numericEnv("VIBE_TREE_LITE_PORT", 47831, 0, 65535);
 const HOST = "127.0.0.1";
 const DATA_DIR = process.env.VIBE_TREE_USER_DATA_DIR?.trim() || defaultDataDir();
-const STATIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
+const LITE_RUNTIME_DIR = dirname(fileURLToPath(import.meta.url));
+const STATIC_DIR = join(LITE_RUNTIME_DIR, "public");
+const BUNDLED_THEMES_DIR = join(LITE_RUNTIME_DIR, "themes");
 const DISABLE_SYNC = process.env.VIBE_TREE_LITE_DISABLE_SYNC === "1";
 const DISABLE_WATCHERS = process.env.VIBE_TREE_LITE_DISABLE_WATCHERS === "1";
 const MAX_SYNC_RESPONSE_CHARS = 16 * 1024 * 1024;
 const csrfToken = randomBytes(24).toString("base64url");
 const store = new LiteStore(DATA_DIR);
+const themePacks = new LiteThemePacks({
+  bundledRoot: BUNDLED_THEMES_DIR,
+  userRoot: store.path("themes"),
+  statePath: store.path("lite-theme.json"),
+  readJson,
+  writeJsonAtomic: (path, value) => store.writeJsonAtomic(path, value),
+});
 const watcherStatus = emptyUsageStatus();
 const watchers: Array<{ close: () => void }> = [];
 let leaderboardCache: { loadedAt: number; value: LeaderboardCollection } | undefined;
@@ -88,8 +99,14 @@ const server = http.createServer(async (request, response) => {
   try {
     if (!validHost(request.headers.host)) return sendText(response, 421, "Invalid host");
     const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/theme.css") {
+      return serveThemeStylesheet(response, request.method === "HEAD");
+    }
     if (request.method === "GET" && url.pathname === "/api/health") {
       return sendJson(response, 200, { ok: true, version: VERSION, changeVersion });
+    }
+    if (request.method === "GET" && url.pathname === "/api/themes") {
+      return sendJson(response, 200, themePacks.catalog());
     }
     if (request.method === "GET" && url.pathname === "/api/dashboard") {
       const days = Number(url.searchParams.get("days") ?? 30);
@@ -101,6 +118,7 @@ const server = http.createServer(async (request, response) => {
       if (url.pathname === "/api/connect-github") return sendJson(response, 200, await connectGitHub());
       if (url.pathname === "/api/connect-existing") return sendJson(response, 200, await connectExisting());
       if (url.pathname === "/api/connect-new") return sendJson(response, 200, await connectNew());
+      if (url.pathname === "/api/theme") return await selectTheme(request, response);
       return sendJson(response, 404, { error: "Not found" });
     }
     if (request.method !== "GET" && request.method !== "HEAD") return sendText(response, 405, "Method not allowed");
@@ -279,6 +297,10 @@ function startWatchers() {
     ...common, sessionsRoot: store.ledger.settings.kimiSessionsDir, onUsage: handleUsage,
     onStatus: (status) => { watcherStatus.kimiSession = status; changeVersion += 1; },
   }));
+  add("deepseekSession", () => startDeepSeekSessionWatcher({
+    ...common, sessionsRoot: store.ledger.settings.deepseekSessionsDir, onUsage: handleUsage,
+    onStatus: (status) => { watcherStatus.deepseekSession = status; changeVersion += 1; },
+  }));
 }
 
 function handleUsage(event: UsageEvent) {
@@ -304,6 +326,7 @@ function sourceSettingId(id: keyof UsageStatus) {
   return ({
     codexSession: "codex", claudeSession: "claude", openclawSession: "openclaw", piSession: "pi",
     opencodeSession: "opencode", geminiSession: "gemini", hermesSession: "hermes", kimiSession: "kimi",
+    deepseekSession: "deepseek",
   } as const)[id];
 }
 
@@ -322,6 +345,7 @@ function emptyUsageStatus(): UsageStatus {
   return {
     codexSession: empty(), claudeSession: empty(), openclawSession: empty(), piSession: empty(),
     opencodeSession: empty(), geminiSession: empty(), hermesSession: empty(), kimiSession: empty(),
+    deepseekSession: empty(),
   };
 }
 
@@ -342,6 +366,45 @@ function serveStatic(pathname: string, response: http.ServerResponse, headOnly: 
   }
   response.writeHead(200, securityHeaders({ "Content-Type": asset.type, "Content-Length": String(body.length), "Cache-Control": "no-cache" }));
   response.end(headOnly ? undefined : body);
+}
+
+function serveThemeStylesheet(response: http.ServerResponse, headOnly: boolean) {
+  const stylesheet = themePacks.stylesheet();
+  const body = Buffer.from(stylesheet.css);
+  response.writeHead(200, securityHeaders({
+    "Content-Type": "text/css; charset=utf-8",
+    "Content-Length": String(body.length),
+    "Cache-Control": "no-cache",
+    ETag: `"${stylesheet.revision}"`,
+    "X-Vibe-Tree-Theme": stylesheet.id,
+  }));
+  response.end(headOnly ? undefined : body);
+}
+
+async function selectTheme(request: http.IncomingMessage, response: http.ServerResponse) {
+  let body: { id?: unknown };
+  try {
+    body = await readRequestJson(request, 2048);
+  } catch {
+    return sendJson(response, 400, { error: "主题请求格式无效。" });
+  }
+  const catalog = themePacks.select(body.id);
+  if (!catalog) return sendJson(response, 404, { error: "没有找到这个主题包。" });
+  changeVersion += 1;
+  return sendJson(response, 200, { ok: true, ...catalog });
+}
+
+async function readRequestJson<T>(request: http.IncomingMessage, maxBytes: number): Promise<T> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new Error("request too large");
+    chunks.push(buffer);
+  }
+  if (!chunks.length) throw new Error("request body required");
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as T;
 }
 
 function validMutation(request: http.IncomingMessage) {
