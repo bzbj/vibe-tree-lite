@@ -105,6 +105,8 @@ The packaged runtime has no npm dependencies and does not contain Electron or
 | `NODE_USE_ENV_PROXY` | Set to `1` by start/install scripts | Use standard proxy environment variables |
 | `VIBE_TREE_LITE_DISABLE_SYNC` | unset | `1` disables network sync for testing |
 | `VIBE_TREE_LITE_DISABLE_WATCHERS` | unset | `1` disables local watcher polling for testing |
+| `VIBE_DEEPSEEK_SESSIONS_DIR` | `$DSH_HOME/sessions` or `~/.dsh/sessions` | Override the DeepSeek Harness session root |
+| `VIBE_DEEPSEEK_IMPORT_HISTORY` | unset | `today` imports today's existing DeepSeek Harness usage instead of only new writes |
 
 ## Security boundary
 
@@ -119,9 +121,10 @@ The packaged runtime has no npm dependencies and does not contain Electron or
 
 ```bash
 npm run test:lite
+npm run test:deepseek-watcher
 npm run typecheck
 ```
 
-The smoke test uses an isolated temporary data directory and verifies the health
-endpoint, today's total, per-model chart data, static dashboard, and request
-token injection.
+The smoke test uses isolated temporary data and session directories. It verifies
+the health endpoint, today's total, per-model chart data, static dashboard,
+request-token injection, and the Lite-to-DeepSeek watcher path.

@@ -10,6 +10,7 @@ import { APP_NAME } from "../shared/appMetadata.js";
 import { MAIN_TEXT } from "../electron/i18n.js";
 import { createLeaderboardService, type LeaderboardRequestJsonOptions } from "../electron/leaderboard.js";
 import { startCodexSessionWatcher } from "../electron/codexSessionWatcher.js";
+import { startDeepSeekSessionWatcher } from "../electron/deepseekSessionWatcher.js";
 import {
   startClaudeSessionWatcher,
   startGeminiSessionWatcher,
@@ -279,6 +280,10 @@ function startWatchers() {
     ...common, sessionsRoot: store.ledger.settings.kimiSessionsDir, onUsage: handleUsage,
     onStatus: (status) => { watcherStatus.kimiSession = status; changeVersion += 1; },
   }));
+  add("deepseekSession", () => startDeepSeekSessionWatcher({
+    ...common, sessionsRoot: store.ledger.settings.deepseekSessionsDir, onUsage: handleUsage,
+    onStatus: (status) => { watcherStatus.deepseekSession = status; changeVersion += 1; },
+  }));
 }
 
 function handleUsage(event: UsageEvent) {
@@ -304,6 +309,7 @@ function sourceSettingId(id: keyof UsageStatus) {
   return ({
     codexSession: "codex", claudeSession: "claude", openclawSession: "openclaw", piSession: "pi",
     opencodeSession: "opencode", geminiSession: "gemini", hermesSession: "hermes", kimiSession: "kimi",
+    deepseekSession: "deepseek",
   } as const)[id];
 }
 
@@ -322,6 +328,7 @@ function emptyUsageStatus(): UsageStatus {
   return {
     codexSession: empty(), claudeSession: empty(), openclawSession: empty(), piSession: empty(),
     opencodeSession: empty(), geminiSession: empty(), hermesSession: empty(), kimiSession: empty(),
+    deepseekSession: empty(),
   };
 }
 

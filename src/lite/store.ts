@@ -19,7 +19,8 @@ import type {
 } from "../shared/types.js";
 import { countedInputTokensForEntry, countedTokensForEntry } from "../shared/tokenAccounting.js";
 
-const SOURCE_IDS = ["codex", "openclaw", "pi", "opencode", "claude", "gemini", "hermes", "kimi", "cloud"];
+const SOURCE_IDS = ["codex", "openclaw", "pi", "opencode", "claude", "gemini", "hermes", "kimi", "deepseek", "cloud"];
+const SOURCE_CATALOG_VERSION = 2;
 
 const DEFAULT_SETTINGS: Settings = {
   locked: false,
@@ -40,7 +41,7 @@ const DEFAULT_SETTINGS: Settings = {
   launchOnStartup: false,
   silentStartup: true,
   enabledSourceIds: [...SOURCE_IDS],
-  sourceCatalogVersion: 1,
+  sourceCatalogVersion: SOURCE_CATALOG_VERSION,
   menubarVizIds: [],
 };
 
@@ -320,9 +321,14 @@ export class LiteStore {
 }
 
 function normalizeSettings(input: Partial<Settings>): Settings {
+  const previousCatalogVersion = Number.isFinite(input.sourceCatalogVersion)
+    ? Math.max(0, Math.floor(input.sourceCatalogVersion ?? 0))
+    : 0;
   const enabled = Array.isArray(input.enabledSourceIds)
     ? [...new Set(input.enabledSourceIds.filter((id): id is string => SOURCE_IDS.includes(id)))]
     : [...SOURCE_IDS];
+  if (previousCatalogVersion < 1 && !enabled.includes("kimi")) insertBeforeCloud(enabled, "kimi");
+  if (previousCatalogVersion < 2 && !enabled.includes("deepseek")) insertBeforeCloud(enabled, "deepseek");
   if (!enabled.includes("cloud")) enabled.push("cloud");
   return {
     ...DEFAULT_SETTINGS,
@@ -337,8 +343,14 @@ function normalizeSettings(input: Partial<Settings>): Settings {
     launchOnStartup: input.launchOnStartup === true,
     silentStartup: true,
     enabledSourceIds: enabled,
+    sourceCatalogVersion: SOURCE_CATALOG_VERSION,
     menubarVizIds: Array.isArray(input.menubarVizIds) ? input.menubarVizIds : [],
   };
+}
+
+function insertBeforeCloud(enabled: string[], source: string) {
+  const cloudIndex = enabled.indexOf("cloud");
+  enabled.splice(cloudIndex >= 0 ? cloudIndex : enabled.length, 0, source);
 }
 
 function mergeModelRow(rows: Map<string, CloudModelStat>, input: CloudModelStat) {
@@ -363,6 +375,7 @@ function statSourceId(entry: LedgerEntry) {
   if (entry.agent === "gemini") return "gemini";
   if (entry.agent === "hermes") return "hermes";
   if (entry.agent === "kimi-code") return "kimi";
+  if (entry.agent === "deepseek-harness" || entry.agent?.startsWith("deepseek-harness:")) return "deepseek";
   return statSourceIdForSource(source);
 }
 
@@ -375,13 +388,14 @@ function statSourceIdForSource(source: string) {
   if (source === "gemini-session") return "gemini";
   if (source === "hermes-session") return "hermes";
   if (source === "kimi-session") return "kimi";
+  if (source === "deepseek-session") return "deepseek";
   return source === "cloud-sync" ? "cloud" : undefined;
 }
 
 function normalizeEventSource(value: unknown, eventId?: unknown) {
   const allowed = new Set([
     "manual", "codex-session", "claude-session", "openclaw-session", "pi-session",
-    "opencode-session", "gemini-session", "hermes-session", "kimi-session", "cloud-sync",
+    "opencode-session", "gemini-session", "hermes-session", "kimi-session", "deepseek-session", "cloud-sync",
   ]);
   const source = typeof value === "string" ? value.trim() : "";
   if (source === "cloud-sync" && typeof eventId === "string") {

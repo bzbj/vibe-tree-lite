@@ -75,6 +75,44 @@ try {
   if (process.platform !== "win32") {
     assert(!existsSync(join(fixture, "runtime-lite.lock")), "runtime lock cleanup");
   }
+
+  const deepseekSessionsRoot = join(fixture, "deepseek-sessions");
+  const deepseekFixtureDir = join(deepseekSessionsRoot, "--lite-fixture--");
+  mkdirSync(deepseekFixtureDir, { recursive: true });
+  writeFileSync(join(deepseekFixtureDir, "session.jsonl"), deepseekSessionLog(Date.now()), "utf8");
+  writeFileSync(join(fixture, "device-settings.json"), JSON.stringify({
+    treeStartMode: "new",
+    enabledSourceIds: ["deepseek", "cloud"],
+    sourceCatalogVersion: 2,
+    leaderboardEnabled: false,
+    cloudSyncEnabled: false,
+  }));
+
+  const deepseekChild = spawn(process.execPath, [serverPath], {
+    env: {
+      ...process.env,
+      VIBE_TREE_USER_DATA_DIR: fixture,
+      VIBE_TREE_LITE_PORT: "0",
+      VIBE_TREE_LITE_DISABLE_SYNC: "1",
+      VIBE_DEEPSEEK_SESSIONS_DIR: deepseekSessionsRoot,
+      VIBE_DEEPSEEK_IMPORT_HISTORY: "today",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const deepseekOutput = await waitForReady(deepseekChild);
+  const deepseekBase = deepseekOutput.match(/VIBE_TREE_LITE_READY (http:\/\/127\.0\.0\.1:\d+)/)?.[1];
+  assert(deepseekBase, "DeepSeek Lite ready URL");
+  const deepseekDashboard = await waitForDashboard(deepseekBase, (value) => value.watchers?.eventsImported === 1);
+  assert(deepseekDashboard.watchers.running === 1, "only the enabled DeepSeek watcher is running");
+  assert(deepseekDashboard.watchers.detected === 1, "DeepSeek sessions root is detected");
+  assert(deepseekDashboard.totals.today === 23, "DeepSeek counted tokens include cache buckets");
+  assert(deepseekDashboard.topModel === "deepseek-chat", "DeepSeek model reaches the Lite chart");
+  assert(deepseekDashboard.chart.at(-1).models["deepseek-chat"] === 23, "DeepSeek model total reaches the current day");
+  deepseekChild.kill("SIGTERM");
+  await new Promise((resolve) => deepseekChild.once("close", resolve));
+  if (process.platform !== "win32") {
+    assert(!existsSync(join(fixture, "runtime-lite.lock")), "DeepSeek Lite runtime lock cleanup");
+  }
   console.log(`Lite smoke test passed (${output.trim()})`);
 } finally {
   rmSync(fixture, { recursive: true, force: true });
@@ -86,6 +124,37 @@ function event(id, createdAt, model, tokens) {
     agent: "codex-desktop", provider: "openai", model, inputTokens: tokens, outputTokens: 0,
     cacheReadTokens: 0, cacheWriteTokens: 0,
   };
+}
+
+function deepseekSessionLog(time) {
+  const records = [
+    { type: "session", version: 0, id: "lite-deepseek-fixture", createdAt: time, seedLength: 0 },
+    { type: "step/start", seq: 0, time, data: { turn: 0, step: 0 } },
+    { type: "request/header", seq: 1, time, data: { header: { config: { provider: "deepseek", model: "deepseek-chat" } } } },
+    {
+      type: "assistant/message",
+      seq: 2,
+      time,
+      data: {
+        turn: 0,
+        step: 0,
+        usage: { inputTokens: 11, outputTokens: 7, cacheReadTokens: 3, cacheWriteTokens: 2 },
+      },
+    },
+    { type: "step/end", seq: 3, time, data: { turn: 0, step: 0 } },
+  ];
+  return `${records.map(JSON.stringify).join("\n")}\n`;
+}
+
+async function waitForDashboard(base, predicate) {
+  const deadline = Date.now() + 10000;
+  let dashboard;
+  while (Date.now() < deadline) {
+    dashboard = await fetch(`${base}/api/dashboard?days=30`).then((response) => response.json());
+    if (predicate(dashboard)) return dashboard;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`DeepSeek Lite dashboard timeout: ${JSON.stringify(dashboard)}`);
 }
 
 function waitForReady(child) {
