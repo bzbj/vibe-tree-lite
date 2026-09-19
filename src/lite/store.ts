@@ -20,7 +20,13 @@ import type {
 import { countedInputTokensForEntry, countedTokensForEntry } from "../shared/tokenAccounting.js";
 
 const SOURCE_IDS = ["codex", "openclaw", "pi", "opencode", "claude", "gemini", "hermes", "kimi", "deepseek", "cloud"];
-const SOURCE_CATALOG_VERSION = 2;
+// Bump this whenever a source is added, and guard that source's migration on
+// `previousCatalogVersion < SOURCE_CATALOG_VERSION`. Version 2 introduced the
+// DeepSeek source together with a `< 2` guard, which no stored file could ever
+// satisfy, so that migration never ran; version 3 re-runs it. A stored value is
+// only bumped once the normalized result is written back, which is what keeps
+// the migration from repeating and lets a later deliberate choice win.
+const SOURCE_CATALOG_VERSION = 3;
 
 const DEFAULT_SETTINGS: Settings = {
   locked: false,
@@ -328,7 +334,7 @@ function normalizeSettings(input: Partial<Settings>): Settings {
     ? [...new Set(input.enabledSourceIds.filter((id): id is string => SOURCE_IDS.includes(id)))]
     : [...SOURCE_IDS];
   if (previousCatalogVersion < 1 && !enabled.includes("kimi")) insertBeforeCloud(enabled, "kimi");
-  if (previousCatalogVersion < 2 && !enabled.includes("deepseek")) insertBeforeCloud(enabled, "deepseek");
+  if (previousCatalogVersion < 3 && !enabled.includes("deepseek")) insertBeforeCloud(enabled, "deepseek");
   if (!enabled.includes("cloud")) enabled.push("cloud");
   return {
     ...DEFAULT_SETTINGS,

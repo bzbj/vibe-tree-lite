@@ -44,6 +44,9 @@ jobs:
       - name: On-demand scan endpoint fixture
         run: node scripts/test-scan-endpoint.mjs
 
+      - name: Source catalog migration fixture
+        run: node scripts/test-source-migration.mjs
+
       - name: Smoke Electron main process
         run: npm run smoke:electron
 

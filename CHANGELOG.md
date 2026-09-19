@@ -6,6 +6,7 @@
 - Fixed DeepSeek Harness tracking stopping after the Harness `0.1.5-rc` session format change: versioned `session.v3.jsonl`/`session.v3.jsonl.zstd` artifacts are now discovered and generation 3 session headers are accepted, while later unknown generations stay ignored.
 - Added `VIBE_TREE_LITE_SCAN_INTERVAL_MS` so a device can trade discovery latency for idle quiet, and made sweeps stop writing the watcher state file when nothing changed. Progress is now check-pointed by elapsed time instead of after a fixed number of files, so write volume no longer scales with the size of the session tree.
 - Added an **立即刷新** action to the Lite dashboard that sweeps the enabled watchers on demand (`POST /api/scan`), so a device configured with a long scan interval no longer has to wait for the next scheduled sweep to see current data.
+- Fixed the DeepSeek source never being enabled on upgrade: the migration was guarded on `previousCatalogVersion < 2` while the same change already stamped stored files with version `2`, so the condition could not be met and the watcher was never started. The catalog version is now `3` on both the Lite and Electron paths, which also lets the migrated list be persisted.
 
 ## 2026-07-15 (v0.8.2)
 

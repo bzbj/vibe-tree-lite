@@ -22,6 +22,7 @@
     "test:deepseek-watcher": "npm run build:lite && node scripts/test-deepseek-session-watcher.mjs",
     "test:scan-cadence": "npm run build:lite && node scripts/test-scan-cadence.mjs",
     "test:scan-endpoint": "npm run build:lite && node scripts/test-scan-endpoint.mjs",
+    "test:source-migration": "npm run build:lite && node scripts/test-source-migration.mjs",
     "test:leveling": "npm run build && node scripts/test-level-progression.mjs",
     "test:mac-handoff": "npm run build && node scripts/test-macos-app-handoff.mjs",
     "test:mac-package": "node scripts/test-macos-package.mjs",

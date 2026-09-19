@@ -82,7 +82,11 @@ const USER_DATA_DIR_OVERRIDE = process.env.VIBE_TREE_USER_DATA_DIR?.trim();
 if (USER_DATA_DIR_OVERRIDE) app.setPath("userData", USER_DATA_DIR_OVERRIDE);
 const STAT_SOURCE_IDS = ["codex", "openclaw", "pi", "opencode", "claude", "gemini", "hermes", "kimi", "deepseek", "cloud"] as const;
 const PRE_KIMI_STAT_SOURCE_IDS = ["codex", "openclaw", "pi", "opencode", "claude", "gemini", "hermes", "cloud"] as const;
-const SOURCE_CATALOG_VERSION = 2;
+// Must match SOURCE_CATALOG_VERSION in src/lite/store.ts, and must be bumped
+// whenever a source is added so the migration for it can actually fire and be
+// persisted: the settings file is rewritten only while the stored version still
+// differs from this constant.
+const SOURCE_CATALOG_VERSION = 3;
 // Menu bar popover components, in their canonical default order. Must mirror
 // MENUBAR_VIZ_IDS in the renderer.
 const MENUBAR_VIZ_IDS = ["rhythm", "sync", "activity", "rank", "sources", "speed"] as const;
@@ -715,7 +719,7 @@ function normalizeEnabledSourceIds(value: unknown, sourceCatalogVersion: unknown
     const cloudIndex = normalized.indexOf("cloud");
     normalized.splice(cloudIndex >= 0 ? cloudIndex : normalized.length, 0, "kimi");
   }
-  if (previousCatalogVersion < 2 && !normalized.includes("deepseek")) {
+  if (previousCatalogVersion < 3 && !normalized.includes("deepseek")) {
     const cloudIndex = normalized.indexOf("cloud");
     normalized.splice(cloudIndex >= 0 ? cloudIndex : normalized.length, 0, "deepseek");
   }
