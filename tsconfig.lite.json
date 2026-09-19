@@ -18,6 +18,7 @@
     "src/electron/deepseekSessionWatcher.ts",
     "src/electron/i18n.ts",
     "src/electron/leaderboard.ts",
+    "src/electron/scanCadence.ts",
     "src/shared/**/*.ts"
   ]
 }

@@ -80,6 +80,7 @@ npm ci
 npm run typecheck
 npm run build
 npm run test:deepseek-watcher
+npm run test:scan-cadence
 npm run test:codex-watcher
 npm run test:leveling
 npm run verify:cloud-sync

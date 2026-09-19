@@ -40,6 +40,29 @@ for an Electron process on startup and stops with an explanation if it finds
 one, because both programs would otherwise update the same watcher offsets and
 event file.
 
+## Scan cadence
+
+The watchers poll their session roots instead of subscribing to filesystem
+events, because append-only artifacts, torn writes, and file rotation are far
+more predictable to detect by comparing a recorded offset. The default cadence
+is ten seconds.
+
+Set `VIBE_TREE_LITE_SCAN_INTERVAL_MS` to scan less often — for example
+`3600000` for one sweep per hour:
+
+```bash
+VIBE_TREE_LITE_SCAN_INTERVAL_MS=3600000 npm run start:lite
+```
+
+Because each watcher stores and persists its per-file read position, a long
+interval does not lose usage: it only delays discovery by up to one interval, so
+the local page may lag by that much. Accepted values are one second to 24 hours;
+anything absent, unparsable, or outside that range falls back to the default.
+
+A sweep that finds nothing new performs no writes at all. Progress is flushed on
+a time-based checkpoint while a sweep runs, so crash protection scales with the
+configured interval rather than with the number of session files.
+
 ## macOS background service
 
 Quit Electron Vibe Tree first, then run:

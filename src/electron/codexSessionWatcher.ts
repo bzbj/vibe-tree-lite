@@ -16,11 +16,13 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import type { UsageEvent, UsageStatus } from "../shared/types.js";
+import { checkpointIntervalMs, resolveScanIntervalMs } from "./scanCadence.js";
 
 interface CodexSessionWatcherOptions {
   userDataPath: string;
   sessionsRoot?: string;
   historyStartAt?: string;
+  scanIntervalMs?: number;
   onUsage: (event: UsageEvent) => void;
   onStatus?: (status: UsageStatus["codexSession"]) => void;
 }
@@ -55,7 +57,6 @@ interface ParsedTokenEvent extends UsageEvent {
   deltaUsage?: CumulativeUsage;
 }
 
-const POLL_INTERVAL_MS = 10_000;
 const READ_CHUNK_SIZE = 64 * 1024;
 const SCAN_YIELD_INTERVAL_MS = 25;
 const DEFAULT_SESSIONS_ROOT = join(homedir(), ".codex", "sessions");
@@ -64,7 +65,6 @@ const SESSION_META_READ_LIMIT = 2 * 1024 * 1024;
 const PARENT_CUMULATIVE_TAIL_READ_LIMIT = 16 * 1024 * 1024;
 const PARENT_CUMULATIVE_TAIL_CHUNK_SIZE = 256 * 1024;
 const INITIAL_SCAN_DELAY_MS = 2_500;
-const SCAN_BATCH_SIZE = 16;
 const SCAN_BATCH_DELAY_MS = 16;
 
 export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
@@ -92,10 +92,21 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
     historyStartAt: options.historyStartAt,
   };
 
+  const scanIntervalMs = options.scanIntervalMs ?? resolveScanIntervalMs();
+  const checkpointEveryMs = checkpointIntervalMs(scanIntervalMs);
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Tracks whether the current sweep actually moved any recorded position.
+  // A sweep that finds nothing new must not rewrite the state file: on a large
+  // session tree the old unconditional flush rewrote it dozens of times per
+  // sweep, which dominated idle disk I/O.
+  let stateDirty = false;
+  const markStateChanged = () => {
+    stateDirty = true;
+  };
 
   const poll = async () => {
     if (closed) return;
@@ -124,7 +135,9 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
     const files = listJsonlFiles(sessionsRoot);
     status.filesWatched = files.length;
     options.onStatus?.(status);
+    stateDirty = false;
     let nextYieldAt = Date.now() + SCAN_YIELD_INTERVAL_MS;
+    let nextCheckpointAt = Date.now() + checkpointEveryMs;
     for (let index = 0; index < files.length; index += 1) {
       if (closed) return;
       const imported = await scanFile(files[index], state, statePath, options, {
@@ -132,6 +145,7 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
         watcherStartedAt,
         historyStartAtMs,
         sessionsRoot,
+        markStateChanged,
         shouldYield: () => Date.now() >= nextYieldAt,
         onYield: async () => {
           await yieldToEventLoop();
@@ -142,19 +156,25 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
         status.eventsImported += imported;
         status.lastEventAt = new Date().toISOString();
       }
-      if ((index + 1) % SCAN_BATCH_SIZE === 0) {
-        writeState(statePath, state);
+      // Checkpoint by elapsed time rather than by file count so that crash
+      // protection scales with the sweep interval, not with the session tree.
+      if (Date.now() >= nextCheckpointAt) {
+        if (stateDirty) {
+          writeState(statePath, state);
+          stateDirty = false;
+        }
         options.onStatus?.(status);
         await delay(SCAN_BATCH_DELAY_MS);
         nextYieldAt = Date.now() + SCAN_YIELD_INTERVAL_MS;
+        nextCheckpointAt = Date.now() + checkpointEveryMs;
       }
     }
-    writeState(statePath, state);
+    if (stateDirty) writeState(statePath, state);
     options.onStatus?.(status);
   };
 
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
-  const timer = setInterval(() => void poll(), POLL_INTERVAL_MS);
+  const timer = setInterval(() => void poll(), scanIntervalMs);
 
   return {
     close: () => {
@@ -179,6 +199,7 @@ async function scanFile(
     watcherStartedAt: number;
     historyStartAtMs?: number;
     sessionsRoot: string;
+    markStateChanged?: () => void;
     shouldYield?: () => boolean;
     onYield?: () => Promise<void>;
   },
@@ -187,7 +208,10 @@ async function scanFile(
   const stats = statSync(filePath);
   const previousOffset = state.files[filePath];
   if ((previousOffset === undefined || stats.size > previousOffset) && isArchivedCodexSession(filePath)) {
-    state.files[filePath] = stats.size;
+    if (previousOffset !== stats.size) {
+      state.files[filePath] = stats.size;
+      settings.markStateChanged?.();
+    }
     return imported;
   }
   const forkBaseline = seedForkCumulativeBaseline(filePath, state, settings.sessionsRoot);
@@ -201,7 +225,12 @@ async function scanFile(
     });
 
   if (stats.size <= offset) {
-    state.files[filePath] = stats.size;
+    // Recording the position is still progress, so it must be persisted, but
+    // only when the value actually moves.
+    if (previousOffset !== stats.size) {
+      state.files[filePath] = stats.size;
+      settings.markStateChanged?.();
+    }
     return imported;
   }
 
@@ -265,6 +294,7 @@ async function scanFile(
 
   state.files[filePath] = stats.size;
   if (currentModel) state.currentModels[filePath] = currentModel;
+  settings.markStateChanged?.();
   return imported;
 }
 

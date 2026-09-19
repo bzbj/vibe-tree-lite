@@ -38,6 +38,9 @@ jobs:
       - name: DeepSeek Harness watcher fixture
         run: node scripts/test-deepseek-session-watcher.mjs
 
+      - name: Scan cadence and idle-write fixture
+        run: node scripts/test-scan-cadence.mjs
+
       - name: Smoke Electron main process
         run: npm run smoke:electron
 

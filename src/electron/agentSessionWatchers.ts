@@ -17,11 +17,13 @@ import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import type { SessionMonitorStatus, UsageEvent } from "../shared/types.js";
+import { checkpointIntervalMs, resolveScanIntervalMs } from "./scanCadence.js";
 
 interface SessionWatcherOptions {
   userDataPath: string;
   sessionsRoot?: string;
   historyStartAt?: string;
+  scanIntervalMs?: number;
   onUsage: (event: UsageEvent) => void;
   onStatus?: (status: SessionMonitorStatus) => void;
 }
@@ -105,10 +107,24 @@ const DEFAULT_OPENCODE_MESSAGES_ROOT = defaultOpenCodeMessagesRoot();
 const DEFAULT_GEMINI_ROOT = join(homedir(), ".gemini", "tmp");
 const DEFAULT_HERMES_STATE_DB = join(homedir(), ".hermes", "state.db");
 const INITIAL_SCAN_DELAY_MS = 2_500;
-const SCAN_BATCH_SIZE = 32;
 const SCAN_BATCH_DELAY_MS = 16;
 
+/**
+ * Poll cadence for the line/JSON/database watchers. The environment override is
+ * resolved once here so every watcher in the process shares one interval; the
+ * default preserves the historical ten-second cadence.
+ */
+const DEFAULT_WATCHER_POLL_MS = resolveScanIntervalMs();
+
 const DEFAULT_KIMI_ROOT = join(homedir(), ".kimi-code", "sessions");
+
+/**
+ * An explicit per-watcher interval wins; otherwise the shared environment
+ * override (already folded into the default) applies.
+ */
+function watcherIntervalMs(options: SessionWatcherOptions, configured: number) {
+  return options.scanIntervalMs ?? configured;
+}
 
 export function startClaudeSessionWatcher(options: SessionWatcherOptions) {
   return startAgentSessionWatcher(options, {
@@ -117,7 +133,7 @@ export function startClaudeSessionWatcher(options: SessionWatcherOptions) {
     sessionsRoot: options.sessionsRoot || process.env.VIBE_CLAUDE_SESSIONS_DIR || DEFAULT_CLAUDE_ROOT,
     importHistoryEnv: "VIBE_CLAUDE_IMPORT_HISTORY",
     stateFileName: "claude-session-watcher.json",
-    pollIntervalMs: 10_000,
+    pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
     parseLine: parseClaudeLine,
   });
 }
@@ -129,7 +145,7 @@ export function startOpenClawSessionWatcher(options: SessionWatcherOptions) {
     sessionsRoot: options.sessionsRoot || process.env.VIBE_OPENCLAW_SESSIONS_DIR || DEFAULT_OPENCLAW_ROOT,
     importHistoryEnv: "VIBE_OPENCLAW_IMPORT_HISTORY",
     stateFileName: "openclaw-session-watcher.json",
-    pollIntervalMs: 10_000,
+    pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
     parseLine: parseOpenClawLine,
   });
 }
@@ -142,7 +158,7 @@ export function startPiSessionWatcher(options: SessionWatcherOptions) {
       options.sessionsRoot || process.env.VIBE_PI_AGENT_SESSIONS_DIR || process.env.VIBE_PI_SESSIONS_DIR || DEFAULT_PI_ROOT,
     importHistoryEnv: "VIBE_PI_IMPORT_HISTORY",
     stateFileName: "pi-session-watcher.json",
-    pollIntervalMs: 10_000,
+    pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
     parseLine: parsePiLine,
   });
 }
@@ -156,7 +172,7 @@ export function startOpenCodeSessionWatcher(options: SessionWatcherOptions) {
       sessionsRoot: target.path,
       importHistoryEnv: "VIBE_OPENCODE_IMPORT_HISTORY",
       stateFileName: "opencode-session-watcher.json",
-      pollIntervalMs: 10_000,
+      pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
       fileExtensions: [".json"],
       parseFile: parseOpenCodeFile,
     });
@@ -217,16 +233,19 @@ function startOpenCodeDbSessionWatcher(options: SessionWatcherOptions, dbPath: s
       return;
     }
 
-    const imported = scanOpenCodeDb(dbPath, state, statePath, { importHistory, watcherStartedAt, historyStartAtMs }, options.onUsage);
-    if (imported > 0) {
-      status.eventsImported += imported;
+    const scan = scanOpenCodeDb(dbPath, state, { importHistory, watcherStartedAt, historyStartAtMs }, options.onUsage);
+    if (scan.imported > 0) {
+      status.eventsImported += scan.imported;
       status.lastEventAt = new Date().toISOString();
     }
+    // Only touch the state file when the scan actually moved something; an
+    // unchanged sweep must leave the disk alone.
+    if (scan.changed) writeState(statePath, state);
     options.onStatus?.(status);
   };
 
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
-  const timer = setInterval(() => void poll(), 10_000);
+  const timer = setInterval(() => void poll(), watcherIntervalMs(options, DEFAULT_WATCHER_POLL_MS));
 
   return {
     close: () => {
@@ -248,7 +267,7 @@ export function startGeminiSessionWatcher(options: SessionWatcherOptions) {
     sessionsRoot: options.sessionsRoot || process.env.VIBE_GEMINI_SESSIONS_DIR || DEFAULT_GEMINI_ROOT,
     importHistoryEnv: "VIBE_GEMINI_IMPORT_HISTORY",
     stateFileName: "gemini-session-watcher.json",
-    pollIntervalMs: 10_000,
+    pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
     fileExtensions: [".json", ".jsonl"],
     parseFile: parseGeminiFile,
   });
@@ -309,22 +328,23 @@ export function startHermesSessionWatcher(options: SessionWatcherOptions) {
       return;
     }
 
-    const imported = scanHermesStateDb(
+    const scan = scanHermesStateDb(
       stateDbPath,
       state,
-      statePath,
       { importHistory, watcherStartedAt, historyStartAtMs },
       options.onUsage,
     );
-    if (imported > 0) {
-      status.eventsImported += imported;
+    if (scan.imported > 0) {
+      status.eventsImported += scan.imported;
       status.lastEventAt = new Date().toISOString();
     }
+    // Only touch the state file when the scan actually moved something.
+    if (scan.changed) writeState(statePath, state);
     options.onStatus?.(status);
   };
 
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
-  const timer = setInterval(() => void poll(), 10_000);
+  const timer = setInterval(() => void poll(), watcherIntervalMs(options, DEFAULT_WATCHER_POLL_MS));
 
   return {
     close: () => {
@@ -346,7 +366,7 @@ export function startKimiSessionWatcher(options: SessionWatcherOptions) {
     sessionsRoot: options.sessionsRoot || process.env.VIBE_KIMI_SESSIONS_DIR || DEFAULT_KIMI_ROOT,
     importHistoryEnv: "VIBE_KIMI_IMPORT_HISTORY",
     stateFileName: "kimi-session-watcher.json",
-    pollIntervalMs: 10_000,
+    pollIntervalMs: DEFAULT_WATCHER_POLL_MS,
     parseLine: parseKimiLine,
   });
 }
@@ -376,6 +396,7 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
   let pollRunning = false;
   let pollQueued = false;
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
+  const checkpointEveryMs = checkpointIntervalMs(watcherIntervalMs(options, config.pollIntervalMs));
 
   const poll = async () => {
     if (closed) return;
@@ -405,31 +426,42 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
     const files = listJsonlFiles(config.sessionsRoot);
     status.filesWatched = files.length;
     options.onStatus?.(status);
+    let stateDirty = false;
+    const markStateChanged = () => {
+      stateDirty = true;
+    };
+    let nextCheckpointAt = Date.now() + checkpointEveryMs;
     for (let index = 0; index < files.length; index += 1) {
       if (closed) return;
       const imported = scanFile(
         files[index],
         state,
         config,
-        { importHistory, watcherStartedAt, historyStartAtMs },
+        { importHistory, watcherStartedAt, historyStartAtMs, markStateChanged },
         options.onUsage,
       );
       if (imported > 0) {
         status.eventsImported += imported;
         status.lastEventAt = new Date().toISOString();
       }
-      if ((index + 1) % SCAN_BATCH_SIZE === 0) {
-        writeState(statePath, state);
+      // Checkpoint by elapsed time rather than by file count so crash
+      // protection scales with the sweep interval, not with the session tree.
+      if (Date.now() >= nextCheckpointAt) {
+        if (stateDirty) {
+          writeState(statePath, state);
+          stateDirty = false;
+        }
         options.onStatus?.(status);
         await delay(SCAN_BATCH_DELAY_MS);
+        nextCheckpointAt = Date.now() + checkpointEveryMs;
       }
     }
-    writeState(statePath, state);
+    if (stateDirty) writeState(statePath, state);
     options.onStatus?.(status);
   };
 
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
-  const timer = setInterval(() => void poll(), config.pollIntervalMs);
+  const timer = setInterval(() => void poll(), watcherIntervalMs(options, config.pollIntervalMs));
 
   return {
     close: () => {
@@ -469,6 +501,7 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
   let pollRunning = false;
   let pollQueued = false;
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
+  const checkpointEveryMs = checkpointIntervalMs(watcherIntervalMs(options, config.pollIntervalMs));
 
   const poll = async () => {
     if (closed) return;
@@ -498,31 +531,40 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
     const files = listJsonFiles(config.sessionsRoot, config.fileExtensions);
     status.filesWatched = files.length;
     options.onStatus?.(status);
+    let stateDirty = false;
+    const markStateChanged = () => {
+      stateDirty = true;
+    };
+    let nextCheckpointAt = Date.now() + checkpointEveryMs;
     for (let index = 0; index < files.length; index += 1) {
       if (closed) return;
       const imported = scanJsonFile(
         files[index],
         state,
         config,
-        { importHistory, watcherStartedAt, historyStartAtMs },
+        { importHistory, watcherStartedAt, historyStartAtMs, markStateChanged },
         options.onUsage,
       );
       if (imported > 0) {
         status.eventsImported += imported;
         status.lastEventAt = new Date().toISOString();
       }
-      if ((index + 1) % SCAN_BATCH_SIZE === 0) {
-        writeState(statePath, state);
+      if (Date.now() >= nextCheckpointAt) {
+        if (stateDirty) {
+          writeState(statePath, state);
+          stateDirty = false;
+        }
         options.onStatus?.(status);
         await delay(SCAN_BATCH_DELAY_MS);
+        nextCheckpointAt = Date.now() + checkpointEveryMs;
       }
     }
-    writeState(statePath, state);
+    if (stateDirty) writeState(statePath, state);
     options.onStatus?.(status);
   };
 
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
-  const timer = setInterval(() => void poll(), config.pollIntervalMs);
+  const timer = setInterval(() => void poll(), watcherIntervalMs(options, config.pollIntervalMs));
 
   return {
     close: () => {
@@ -541,7 +583,7 @@ function scanFile(
   filePath: string,
   state: WatchState,
   config: AgentConfig,
-  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number },
+  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number; markStateChanged?: () => void },
   onUsage: (event: UsageEvent) => void,
 ) {
   let imported = 0;
@@ -550,7 +592,12 @@ function scanFile(
   const offset = previousOffset ?? initialOffset(filePath, stats, settings);
 
   if (stats.size <= offset) {
-    state.files[filePath] = stats.size;
+    // Record the position, but only report a change when it actually moves so
+    // an unchanged sweep does not rewrite the state file.
+    if (previousOffset !== stats.size) {
+      state.files[filePath] = stats.size;
+      settings.markStateChanged?.();
+    }
     return imported;
   }
 
@@ -563,6 +610,7 @@ function scanFile(
   });
 
   state.files[filePath] = stats.size;
+  settings.markStateChanged?.();
   return imported;
 }
 
@@ -570,7 +618,7 @@ function scanJsonFile(
   filePath: string,
   state: WatchState,
   config: JsonAgentConfig,
-  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number },
+  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number; markStateChanged?: () => void },
   onUsage: (event: UsageEvent) => void,
 ) {
   const stats = statSync(filePath);
@@ -581,10 +629,12 @@ function scanJsonFile(
 
   if (previousMtime === undefined && shouldSkipInitialJsonFile(filePath, stats, settings)) {
     state.files[filePath] = stats.mtimeMs;
+    settings.markStateChanged?.();
     return 0;
   }
 
   state.files[filePath] = stats.mtimeMs;
+  settings.markStateChanged?.();
 
   const events = toUsageEvents(config.parseFile(filePath));
   let imported = 0;
@@ -605,21 +655,21 @@ function scanJsonFile(
 function scanHermesStateDb(
   stateDbPath: string,
   state: WatchState,
-  statePath: string,
-  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number },
+  settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number; markStateChanged?: () => void },
   onUsage: (event: UsageEvent) => void,
 ) {
   const stats = statSync(stateDbPath);
   const previousMtime = state.files[stateDbPath];
   if (previousMtime !== undefined && stats.mtimeMs <= previousMtime) {
-    return 0;
+    return { imported: 0, changed: false };
   }
 
   const rows = readHermesSessionRows(stateDbPath);
   if (!rows) {
-    return 0;
+    return { imported: 0, changed: false };
   }
   state.files[stateDbPath] = stats.mtimeMs;
+  settings.markStateChanged?.();
 
   let imported = 0;
   for (const row of rows) {
@@ -665,26 +715,25 @@ function scanHermesStateDb(
     imported += 1;
   }
 
-  writeState(statePath, state);
-  return imported;
+  // The caller persists the state so an unchanged sweep can skip the write.
+  return { imported, changed: true };
 }
 
 function scanOpenCodeDb(
   dbPath: string,
   state: WatchState,
-  statePath: string,
   settings: { importHistory: boolean; watcherStartedAt: number; historyStartAtMs?: number },
   onUsage: (event: UsageEvent) => void,
 ) {
   const currentMtime = sqliteDbScanMtime(dbPath);
   const previousMtime = state.files[dbPath];
   if (previousMtime !== undefined && currentMtime <= previousMtime) {
-    return 0;
+    return { imported: 0, changed: false };
   }
 
   const rows = readOpenCodeMessageRows(dbPath);
   if (!rows) {
-    return 0;
+    return { imported: 0, changed: false };
   }
   state.files[dbPath] = currentMtime;
 
@@ -700,8 +749,8 @@ function scanOpenCodeDb(
     imported += 1;
   }
 
-  writeState(statePath, state);
-  return imported;
+  // The caller persists the state so an unchanged sweep can skip the write.
+  return { imported, changed: true };
 }
 
 function readOpenCodeMessageRows(dbPath: string): OpenCodeMessageRow[] | undefined {

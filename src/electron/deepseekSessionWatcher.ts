@@ -15,8 +15,8 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { zstdDecompressSync } from "node:zlib";
 import type { SessionMonitorStatus, UsageEvent } from "../shared/types.js";
+import { checkpointIntervalMs, resolveScanIntervalMs } from "./scanCadence.js";
 
-const POLL_INTERVAL_MS = 10_000;
 const INITIAL_SCAN_DELAY_MS = 100;
 const STATE_VERSION = 1;
 const ZSTD_MAGIC = 0xfd2fb528;
@@ -100,6 +100,7 @@ interface WatcherOptions {
   userDataPath: string;
   sessionsRoot?: string;
   historyStartAt?: string;
+  scanIntervalMs?: number;
   onUsage: (event: UsageEvent) => void;
   onStatus?: (status: SessionMonitorStatus) => void;
 }
@@ -129,6 +130,8 @@ export function startDeepSeekSessionWatcher(options: WatcherOptions): DeepSeekSe
   const historyStartAt = effectiveHistoryStartAt(options.historyStartAt);
   const importHistory = Boolean(historyStartAt);
   const initialScanStartedAt = Date.now();
+  const scanIntervalMs = options.scanIntervalMs ?? resolveScanIntervalMs();
+  const checkpointEveryMs = checkpointIntervalMs(scanIntervalMs);
   let state = loadState(statePath, historyStartAt);
   let closed = false;
   let scanning = false;
@@ -162,10 +165,19 @@ export function startDeepSeekSessionWatcher(options: WatcherOptions): DeepSeekSe
       const paths = exists ? listSessionFiles(sessionsRoot) : [];
       filesWatched = paths.length;
       const present = new Set(paths);
+      let stateDirty = false;
       for (const knownPath of Object.keys(state.files)) {
-        if (!present.has(knownPath)) delete state.files[knownPath];
+        if (!present.has(knownPath)) {
+          delete state.files[knownPath];
+          stateDirty = true;
+        }
       }
+      // Flushing state after every file made write volume scale with the size
+      // of the session tree. Throttle by elapsed time instead, and skip the
+      // write entirely when a sweep moved nothing.
+      let nextCheckpointAt = Date.now() + checkpointEveryMs;
       for (const filePath of paths) {
+        const before = JSON.stringify(state.files[filePath] ?? null);
         try {
           importedThisScan += scanFile(filePath, state, {
             historyStartAt,
@@ -179,9 +191,20 @@ export function startDeepSeekSessionWatcher(options: WatcherOptions): DeepSeekSe
         } catch {
           // A concurrent rotation or malformed artifact must not stop other sessions.
         }
+        // `processRecord` records session metadata as well as read progress, so
+        // compare the entry instead of relying on the import count alone.
+        if (!stateDirty && JSON.stringify(state.files[filePath] ?? null) !== before) stateDirty = true;
+        if (Date.now() >= nextCheckpointAt) {
+          if (stateDirty) {
+            persistState(statePath, state);
+            stateDirty = false;
+          }
+          publishStatus();
+          nextCheckpointAt = Date.now() + checkpointEveryMs;
+        }
       }
       lastScanAt = new Date().toISOString();
-      persistState(statePath, state);
+      if (stateDirty) persistState(statePath, state);
       publishStatus();
       return importedThisScan;
     } finally {
@@ -199,7 +222,7 @@ export function startDeepSeekSessionWatcher(options: WatcherOptions): DeepSeekSe
   };
 
   publishStatus();
-  timer = setInterval(() => void scanNow(), POLL_INTERVAL_MS);
+  timer = setInterval(() => void scanNow(), scanIntervalMs);
   setTimeout(() => void scanNow(), INITIAL_SCAN_DELAY_MS);
 
   return { close, getStatus: status, scanNow };

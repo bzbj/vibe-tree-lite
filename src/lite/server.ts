@@ -11,6 +11,7 @@ import { MAIN_TEXT } from "../electron/i18n.js";
 import { createLeaderboardService, type LeaderboardRequestJsonOptions } from "../electron/leaderboard.js";
 import { startCodexSessionWatcher } from "../electron/codexSessionWatcher.js";
 import { startDeepSeekSessionWatcher } from "../electron/deepseekSessionWatcher.js";
+import { resolveScanIntervalMs } from "../electron/scanCadence.js";
 import {
   startClaudeSessionWatcher,
   startGeminiSessionWatcher,
@@ -258,7 +259,11 @@ function startWatchers() {
   closeWatchers();
   if (!store.ledger.settings.treeStartMode) return;
   const enabled = new Set(store.ledger.settings.enabledSourceIds);
-  const common = { userDataPath: DATA_DIR, historyStartAt: store.ledger.installedAt };
+  // Resolve the sweep cadence once so every watcher in the process shares one
+  // interval. The default keeps the historical ten-second poll; a larger value
+  // (for example one hour) turns the watchers into a quiet periodic sweep.
+  const scanIntervalMs = resolveScanIntervalMs();
+  const common = { userDataPath: DATA_DIR, historyStartAt: store.ledger.installedAt, scanIntervalMs };
   const add = (id: keyof UsageStatus, start: () => { close: () => void }) => {
     if (!enabled.has(sourceSettingId(id))) return;
     watchers.push(start());
