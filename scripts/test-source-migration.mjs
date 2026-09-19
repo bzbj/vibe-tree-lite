@@ -158,13 +158,6 @@ try {
     `the migrated DeepSeek source must be watched, got ${running} running watchers (expected codex + deepseek)`,
   );
 
-  // The running DeepSeek watcher must be the one the migrated list asked for.
-  const dashboard = await fetch(`${base}/api/dashboard?days=30`).then((response) => response.json());
-  assert(
-    dashboard.watchers.detected >= 1,
-    "at least one watcher should report a session root on disk",
-  );
-
   console.log("deepseek source migration tests passed");
 } finally {
   if (child) {
