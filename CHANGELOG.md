@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added DeepSeek Harness token tracking from append-only `session.jsonl` and concatenated `session.jsonl.zstd` files, with incremental scanning, restart-safe deduplication, source settings, and cloud-sync source preservation.
+- Fixed DeepSeek Harness tracking stopping after the Harness `0.1.5-rc` session format change: versioned `session.v3.jsonl`/`session.v3.jsonl.zstd` artifacts are now discovered and generation 3 session headers are accepted, while later unknown generations stay ignored.
 
 ## 2026-07-15 (v0.8.2)
 

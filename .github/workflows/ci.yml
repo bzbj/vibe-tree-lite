@@ -32,6 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build Lite runtime
+        run: npm run build:lite
+
       - name: DeepSeek Harness watcher fixture
         run: node scripts/test-deepseek-session-watcher.mjs
 
