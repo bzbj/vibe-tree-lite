@@ -71,6 +71,7 @@ export class LiteStore {
   constructor(dataDir: string) {
     this.dataDir = dataDir;
     this.ledger = this.readLedger();
+    this.persistNormalizedSettings();
     this.achievements = this.readAchievements();
     this.resetEntryIds();
   }
@@ -289,6 +290,25 @@ export class LiteStore {
     return { entries, settings, installedAt };
   }
 
+  /**
+   * Records the normalized settings when they differ from what is stored.
+   *
+   * `readLedger` normalizes for the running process, but the file is otherwise
+   * written only by `updateSettings`. A migration applied at load would then be
+   * lost on the next restart, and the stored catalog version would never
+   * advance, so the device would silently re-migrate on every boot. Writing the
+   * result once makes the migration a durable fact about the device.
+   *
+   * The write is deliberately conditional: a boot whose stored file already
+   * matches must not touch the disk, and a file that merely lacks a newer key
+   * with a default value is not a difference worth rewriting.
+   */
+  private persistNormalizedSettings() {
+    const stored = readJsonFile<Partial<Settings>>(this.path("device-settings.json"));
+    if (stored && settingsMatch(stored, this.ledger.settings)) return;
+    this.writeJsonAtomic(this.path("device-settings.json"), this.ledger.settings);
+  }
+
   private readEntries() {
     const path = this.path("usage-events.jsonl");
     if (!existsSync(path)) return [];
@@ -357,6 +377,27 @@ function normalizeSettings(input: Partial<Settings>): Settings {
 function insertBeforeCloud(enabled: string[], source: string) {
   const cloudIndex = enabled.indexOf("cloud");
   enabled.splice(cloudIndex >= 0 ? cloudIndex : enabled.length, 0, source);
+}
+
+/**
+ * True when a stored settings object already produces the normalized result.
+ *
+ * Only keys the stored object actually carries are compared, so a file written
+ * before a setting existed is not treated as changed merely because
+ * normalization filled that setting with its default. `enabledSourceIds` is
+ * compared in order, because the source list order is presented to the user.
+ */
+function settingsMatch(stored: Partial<Settings>, normalized: Settings) {
+  for (const [key, value] of Object.entries(stored)) {
+    if (!(key in normalized)) continue;
+    const expected = normalized[key as keyof Settings];
+    if (Array.isArray(value) && Array.isArray(expected)) {
+      if (value.length !== expected.length || value.some((item, index) => item !== expected[index])) return false;
+      continue;
+    }
+    if (value !== expected) return false;
+  }
+  return true;
 }
 
 function mergeModelRow(rows: Map<string, CloudModelStat>, input: CloudModelStat) {

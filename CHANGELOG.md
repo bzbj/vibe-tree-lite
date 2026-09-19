@@ -7,6 +7,7 @@
 - Added `VIBE_TREE_LITE_SCAN_INTERVAL_MS` so a device can trade discovery latency for idle quiet, and made sweeps stop writing the watcher state file when nothing changed. Progress is now check-pointed by elapsed time instead of after a fixed number of files, so write volume no longer scales with the size of the session tree.
 - Added an **立即刷新** action to the Lite dashboard that sweeps the enabled watchers on demand (`POST /api/scan`), so a device configured with a long scan interval no longer has to wait for the next scheduled sweep to see current data.
 - Fixed the DeepSeek source never being enabled on upgrade: the migration was guarded on `previousCatalogVersion < 2` while the same change already stamped stored files with version `2`, so the condition could not be met and the watcher was never started. The catalog version is now `3` on both the Lite and Electron paths, which also lets the migrated list be persisted.
+- Fixed the Lite path applying a migrated settings list in memory only: `LiteStore` now records the normalized settings when they differ from the stored ones, so a migration is durable instead of being re-applied on every restart. A boot whose settings are already current still writes nothing.
 
 ## 2026-07-15 (v0.8.2)
 

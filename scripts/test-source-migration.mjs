@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -77,6 +77,31 @@ try {
   assert(
     migrated.ledger.settings.sourceCatalogVersion === 3,
     `the stored version should be recorded as current, got ${migrated.ledger.settings.sourceCatalogVersion}`,
+  );
+
+  // The migration must be recorded on disk, not merely applied in memory:
+  // otherwise it is lost on the next restart and the device re-migrates on
+  // every boot. This is the difference between the Electron path, which writes
+  // settings back during startup, and the Lite path, which only wrote on an
+  // explicit settings change.
+  const settingsPath = join(migratedFixture, "device-settings.json");
+  const persisted = JSON.parse(readFileSync(settingsPath, "utf8"));
+  assert(
+    persisted.enabledSourceIds.includes("deepseek"),
+    `the migrated source list must be persisted, got ${JSON.stringify(persisted.enabledSourceIds)}`,
+  );
+  assert(
+    persisted.sourceCatalogVersion === 3,
+    `the persisted catalog version must advance so the migration is not repeated, got ${persisted.sourceCatalogVersion}`,
+  );
+
+  // A second boot over an already-current file must not write again: the fix
+  // must not turn every startup into a disk write.
+  const settled = statSync(settingsPath).mtimeMs;
+  new LiteStore(migratedFixture);
+  assert(
+    statSync(settingsPath).mtimeMs === settled,
+    "a boot whose settings are already current must not rewrite the settings file",
   );
 } finally {
   rmSync(migratedFixture, { recursive: true, force: true });
