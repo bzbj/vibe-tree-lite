@@ -5,6 +5,7 @@
 - Added DeepSeek Harness token tracking from append-only `session.jsonl` and concatenated `session.jsonl.zstd` files, with incremental scanning, restart-safe deduplication, source settings, and cloud-sync source preservation.
 - Fixed DeepSeek Harness tracking stopping after the Harness `0.1.5-rc` session format change: versioned `session.v3.jsonl`/`session.v3.jsonl.zstd` artifacts are now discovered and generation 3 session headers are accepted, while later unknown generations stay ignored.
 - Added `VIBE_TREE_LITE_SCAN_INTERVAL_MS` so a device can trade discovery latency for idle quiet, and made sweeps stop writing the watcher state file when nothing changed. Progress is now check-pointed by elapsed time instead of after a fixed number of files, so write volume no longer scales with the size of the session tree.
+- Added an **立即刷新** action to the Lite dashboard that sweeps the enabled watchers on demand (`POST /api/scan`), so a device configured with a long scan interval no longer has to wait for the next scheduled sweep to see current data.
 
 ## 2026-07-15 (v0.8.2)
 

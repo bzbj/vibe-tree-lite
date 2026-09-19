@@ -204,6 +204,10 @@ function startOpenCodeDbSessionWatcher(options: SessionWatcherOptions, dbPath: s
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
+  // Callers waiting for the in-flight sweep to settle. A list rather than a
+  // single slot, so overlapping on-demand requests all resolve instead of only
+  // the most recent one.
+  const pendingPoll: Array<() => void> = [];
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
 
   const poll = async () => {
@@ -221,6 +225,7 @@ function startOpenCodeDbSessionWatcher(options: SessionWatcherOptions, dbPath: s
       } while (pollQueued && !closed);
     } finally {
       pollRunning = false;
+      for (const settle of pendingPoll.splice(0)) settle();
     }
   };
 
@@ -244,6 +249,20 @@ function startOpenCodeDbSessionWatcher(options: SessionWatcherOptions, dbPath: s
     options.onStatus?.(status);
   };
 
+  /**
+   * Runs one sweep on demand and resolves once it has finished. When a sweep
+   * is already in flight the request joins it instead of starting a second
+   * pass, so an on-demand scan can never overlap a scheduled one.
+   */
+  const scanNow = async () => {
+    if (closed) return;
+    const settled = new Promise<void>((resolve) => {
+      pendingPoll.push(resolve);
+    });
+    await poll();
+    await settled;
+  };
+
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
   const timer = setInterval(() => void poll(), watcherIntervalMs(options, DEFAULT_WATCHER_POLL_MS));
 
@@ -257,6 +276,7 @@ function startOpenCodeDbSessionWatcher(options: SessionWatcherOptions, dbPath: s
       options.onStatus?.(status);
     },
     getStatus: () => status,
+    scanNow,
   };
 }
 
@@ -299,6 +319,10 @@ export function startHermesSessionWatcher(options: SessionWatcherOptions) {
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
+  // Callers waiting for the in-flight sweep to settle. A list rather than a
+  // single slot, so overlapping on-demand requests all resolve instead of only
+  // the most recent one.
+  const pendingPoll: Array<() => void> = [];
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
 
   const poll = async () => {
@@ -316,6 +340,7 @@ export function startHermesSessionWatcher(options: SessionWatcherOptions) {
       } while (pollQueued && !closed);
     } finally {
       pollRunning = false;
+      for (const settle of pendingPoll.splice(0)) settle();
     }
   };
 
@@ -343,6 +368,20 @@ export function startHermesSessionWatcher(options: SessionWatcherOptions) {
     options.onStatus?.(status);
   };
 
+  /**
+   * Runs one sweep on demand and resolves once it has finished. When a sweep
+   * is already in flight the request joins it instead of starting a second
+   * pass, so an on-demand scan can never overlap a scheduled one.
+   */
+  const scanNow = async () => {
+    if (closed) return;
+    const settled = new Promise<void>((resolve) => {
+      pendingPoll.push(resolve);
+    });
+    await poll();
+    await settled;
+  };
+
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
   const timer = setInterval(() => void poll(), watcherIntervalMs(options, DEFAULT_WATCHER_POLL_MS));
 
@@ -356,6 +395,7 @@ export function startHermesSessionWatcher(options: SessionWatcherOptions) {
       options.onStatus?.(status);
     },
     getStatus: () => status,
+    scanNow,
   };
 }
 
@@ -395,6 +435,10 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
+  // Callers waiting for the in-flight sweep to settle. A list rather than a
+  // single slot, so overlapping on-demand requests all resolve instead of only
+  // the most recent one.
+  const pendingPoll: Array<() => void> = [];
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
   const checkpointEveryMs = checkpointIntervalMs(watcherIntervalMs(options, config.pollIntervalMs));
 
@@ -412,6 +456,7 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
       } while (pollQueued && !closed);
     } finally {
       pollRunning = false;
+      for (const settle of pendingPoll.splice(0)) settle();
     }
   };
 
@@ -460,6 +505,20 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
     options.onStatus?.(status);
   };
 
+  /**
+   * Runs one sweep on demand and resolves once it has finished. When a sweep
+   * is already in flight the request joins it instead of starting a second
+   * pass, so an on-demand scan can never overlap a scheduled one.
+   */
+  const scanNow = async () => {
+    if (closed) return;
+    const settled = new Promise<void>((resolve) => {
+      pendingPoll.push(resolve);
+    });
+    await poll();
+    await settled;
+  };
+
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
   const timer = setInterval(() => void poll(), watcherIntervalMs(options, config.pollIntervalMs));
 
@@ -473,6 +532,7 @@ function startAgentSessionWatcher(options: SessionWatcherOptions, config: AgentC
       options.onStatus?.(status);
     },
     getStatus: () => status,
+    scanNow,
   };
 }
 
@@ -500,6 +560,10 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
+  // Callers waiting for the in-flight sweep to settle. A list rather than a
+  // single slot, so overlapping on-demand requests all resolve instead of only
+  // the most recent one.
+  const pendingPoll: Array<() => void> = [];
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
   const checkpointEveryMs = checkpointIntervalMs(watcherIntervalMs(options, config.pollIntervalMs));
 
@@ -517,6 +581,7 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
       } while (pollQueued && !closed);
     } finally {
       pollRunning = false;
+      for (const settle of pendingPoll.splice(0)) settle();
     }
   };
 
@@ -563,6 +628,20 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
     options.onStatus?.(status);
   };
 
+  /**
+   * Runs one sweep on demand and resolves once it has finished. When a sweep
+   * is already in flight the request joins it instead of starting a second
+   * pass, so an on-demand scan can never overlap a scheduled one.
+   */
+  const scanNow = async () => {
+    if (closed) return;
+    const settled = new Promise<void>((resolve) => {
+      pendingPoll.push(resolve);
+    });
+    await poll();
+    await settled;
+  };
+
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
   const timer = setInterval(() => void poll(), watcherIntervalMs(options, config.pollIntervalMs));
 
@@ -576,6 +655,7 @@ function startJsonAgentSessionWatcher(options: SessionWatcherOptions, config: Js
       options.onStatus?.(status);
     },
     getStatus: () => status,
+    scanNow,
   };
 }
 

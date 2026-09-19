@@ -9,6 +9,9 @@ let selectedModel;
 let themeCatalog;
 
 document.querySelector("#sync-button").addEventListener("click", (event) => mutate("/api/sync", "同步完成", event.currentTarget, "同步中…"));
+document.querySelector("#scan-button").addEventListener("click", (event) =>
+  mutate("/api/scan", (result) => `已刷新 ${result.scanned} 个采集源`, event.currentTarget, "刷新中…"),
+);
 document.querySelector("#clear-model").addEventListener("click", () => selectModel());
 themeSelect.addEventListener("change", () => selectTheme(themeSelect.value));
 document.querySelector("#auth-actions").addEventListener("click", (event) => {
@@ -109,6 +112,10 @@ async function refresh() {
   }
 }
 
+/**
+ * `successMessage` may be a string or a function of the parsed response, so a
+ * caller can report something derived from the result.
+ */
 async function mutate(path, successMessage, button, busyLabel = "正在处理…") {
   const originalLabel = button.textContent;
   button.disabled = true;
@@ -123,7 +130,7 @@ async function mutate(path, successMessage, button, busyLabel = "正在处理…
     if (!response.ok || result.error || result.cloud?.error || result.leaderboard?.error) {
       throw new Error(result.error || result.cloud?.error || result.leaderboard?.error || "操作未完成");
     }
-    showToast(successMessage);
+    showToast(typeof successMessage === "function" ? successMessage(result) : successMessage);
     await refresh();
   } catch (error) {
     showToast(error.message || "操作失败");

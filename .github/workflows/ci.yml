@@ -41,6 +41,9 @@ jobs:
       - name: Scan cadence and idle-write fixture
         run: node scripts/test-scan-cadence.mjs
 
+      - name: On-demand scan endpoint fixture
+        run: node scripts/test-scan-endpoint.mjs
+
       - name: Smoke Electron main process
         run: npm run smoke:electron
 

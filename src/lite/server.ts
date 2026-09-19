@@ -45,7 +45,16 @@ const themePacks = new LiteThemePacks({
   writeJsonAtomic: (path, value) => store.writeJsonAtomic(path, value),
 });
 const watcherStatus = emptyUsageStatus();
-const watchers: Array<{ close: () => void }> = [];
+
+/** A running watcher that can be swept on demand from the dashboard. */
+interface WatcherHandle {
+  close: () => void;
+  // Watchers resolve with a sweep-specific value (DeepSeek reports its import
+  // count). Only completion matters here, so the result stays unconstrained.
+  scanNow: () => Promise<unknown>;
+}
+
+const watchers: WatcherHandle[] = [];
 let leaderboardCache: { loadedAt: number; value: LeaderboardCollection } | undefined;
 let localDashboardCache: { dataVersion: number; days: number; value: ReturnType<LiteStore["dashboard"]> } | undefined;
 let changeVersion = 0;
@@ -116,6 +125,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname.startsWith("/api/")) {
       if (!validMutation(request)) return sendJson(response, 403, { error: "请求校验失败，请刷新页面后重试。" });
       if (url.pathname === "/api/sync") return sendJson(response, 200, await syncAll());
+      if (url.pathname === "/api/scan") return sendJson(response, 200, await scanAllWatchers());
       if (url.pathname === "/api/connect-github") return sendJson(response, 200, await connectGitHub());
       if (url.pathname === "/api/connect-existing") return sendJson(response, 200, await connectExisting());
       if (url.pathname === "/api/connect-new") return sendJson(response, 200, await connectNew());
@@ -264,7 +274,7 @@ function startWatchers() {
   // (for example one hour) turns the watchers into a quiet periodic sweep.
   const scanIntervalMs = resolveScanIntervalMs();
   const common = { userDataPath: DATA_DIR, historyStartAt: store.ledger.installedAt, scanIntervalMs };
-  const add = (id: keyof UsageStatus, start: () => { close: () => void }) => {
+  const add = (id: keyof UsageStatus, start: () => WatcherHandle) => {
     if (!enabled.has(sourceSettingId(id))) return;
     watchers.push(start());
   };
@@ -325,6 +335,27 @@ function restartWatchers() {
 
 function closeWatchers() {
   while (watchers.length) watchers.pop()?.close();
+}
+
+/**
+ * Sweeps every enabled watcher on demand so the dashboard can show current
+ * data without waiting for the next scheduled interval. Watchers are swept
+ * concurrently and each one joins an in-flight sweep instead of racing it, so
+ * this is safe to call while a scheduled sweep is running.
+ */
+async function scanAllWatchers() {
+  if (DISABLE_WATCHERS) return { error: "当前以禁用采集器模式运行。" };
+  if (!watchers.length) return { error: "没有已启用的采集源。" };
+  const results = await Promise.allSettled(watchers.map((watcher) => watcher.scanNow()));
+  const failed = results.filter((result) => result.status === "rejected").length;
+  // Any watcher that did produce usage has already bumped the data version via
+  // its onStatus/onUsage callbacks, so the next dashboard read is guaranteed to
+  // be recomputed rather than served from the local cache.
+  return {
+    ok: failed === 0,
+    scanned: results.length - failed,
+    failed,
+  };
 }
 
 function sourceSettingId(id: keyof UsageStatus) {

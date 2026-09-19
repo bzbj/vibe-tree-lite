@@ -97,6 +97,10 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
   let closed = false;
   let pollRunning = false;
   let pollQueued = false;
+  // Callers waiting for the in-flight sweep to settle. A list rather than a
+  // single slot, so overlapping on-demand requests all resolve instead of only
+  // the most recent one.
+  const pendingPoll: Array<() => void> = [];
   let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Tracks whether the current sweep actually moved any recorded position.
@@ -122,6 +126,7 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
       } while (pollQueued && !closed);
     } finally {
       pollRunning = false;
+      for (const settle of pendingPoll.splice(0)) settle();
     }
   };
 
@@ -173,6 +178,20 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
     options.onStatus?.(status);
   };
 
+  /**
+   * Runs one sweep on demand and resolves once it has finished. When a sweep
+   * is already in flight the request joins it instead of starting a second
+   * pass, so an on-demand scan can never overlap a scheduled one.
+   */
+  const scanNow = async () => {
+    if (closed) return;
+    const settled = new Promise<void>((resolve) => {
+      pendingPoll.push(resolve);
+    });
+    await poll();
+    await settled;
+  };
+
   initialScanTimer = setTimeout(() => void poll(), INITIAL_SCAN_DELAY_MS);
   const timer = setInterval(() => void poll(), scanIntervalMs);
 
@@ -186,6 +205,7 @@ export function startCodexSessionWatcher(options: CodexSessionWatcherOptions) {
       options.onStatus?.(status);
     },
     getStatus: () => status,
+    scanNow,
   };
 }
 

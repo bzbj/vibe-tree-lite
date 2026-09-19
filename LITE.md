@@ -63,6 +63,17 @@ A sweep that finds nothing new performs no writes at all. Progress is flushed on
 a time-based checkpoint while a sweep runs, so crash protection scales with the
 configured interval rather than with the number of session files.
 
+### On-demand refresh
+
+Because a long interval means the page can lag, the toolbar has an **立即刷新**
+action next to **立即同步**. It sweeps every enabled watcher immediately and
+re-renders when the sweep finishes, so there is no need to wait for the next
+scheduled pass or to restart the service.
+
+The two actions are independent: **立即刷新** re-reads the local session roots,
+while **立即同步** exchanges the cloud tree and leaderboard over the network.
+An idle refresh costs nothing, since a sweep with no new data performs no writes.
+
 ## macOS background service
 
 Quit Electron Vibe Tree first, then run:
