@@ -174,14 +174,16 @@ removed; the Vibe Tree token data directory is still preserved.
 Install on the second machine with the same commands as the first:
 
 ```bash
-git clone git@github.com:bzbj/vibe-tree-lite.git
+git clone https://github.com/bzbj/vibe-tree-lite.git
 cd vibe-tree-lite
 npm ci
 npm run install:lite:mac -- --schedule   # macOS hourly pass; omit --schedule for the resident dashboard
 # Windows: npm.cmd ci && powershell -File .\scripts\install-lite-windows.ps1
 ```
 
-Then log in once so the device joins the same cloud tree:
+A scheduled install must be signed in before it can upload: with no stored
+credentials every pass ends `ok:false` with "please sign in with GitHub first"
+in `~/Library/Logs/Vibe Tree Lite/service.log`. Sign in once:
 
 1. Open the local page (`npm run start:lite`) or the packaged runtime.
 2. Choose **使用 GitHub 登录** and complete GitHub login in the browser.
