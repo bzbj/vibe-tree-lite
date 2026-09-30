@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a cloud usage page at `https://lab.linjunkai.com/vibe-tree/` that reads the shared tree directly from the worker, so token totals, model/device/source breakdowns and daily history stay available without a resident dashboard process. `npm run open:dashboard` opens it with the stored session token.
+- Added a scheduled, non-resident Lite mode: `server.js --once` sweeps every enabled watcher once, runs one cloud sync and one leaderboard upload, then exits. The watcher state files keep their per-file read offsets, so each pass reads only what the session files appended since the previous pass. `npm run install:lite:mac -- --schedule` installs it as an hourly LaunchAgent (`StartInterval`) instead of a kept-alive service, which removes the always-on polling, the per-event upload debounce, and the resident dashboard process.
 - Added DeepSeek Harness token tracking from append-only `session.jsonl` and concatenated `session.jsonl.zstd` files, with incremental scanning, restart-safe deduplication, source settings, and cloud-sync source preservation.
 - Fixed DeepSeek Harness tracking stopping after the Harness `0.1.5-rc` session format change: versioned `session.v3.jsonl`/`session.v3.jsonl.zstd` artifacts are now discovered and generation 3 session headers are accepted, while later unknown generations stay ignored.
 - Added `VIBE_TREE_LITE_SCAN_INTERVAL_MS` so a device can trade discovery latency for idle quiet, and made sweeps stop writing the watcher state file when nothing changed. Progress is now check-pointed by elapsed time instead of after a fixed number of files, so write volume no longer scales with the size of the session tree.

@@ -23,6 +23,7 @@ import {
 } from "../electron/agentSessionWatchers.js";
 import { LiteStore } from "./store.js";
 import { LiteThemePacks } from "./themePacks.js";
+import { runOneShot, summarizeScan } from "./oneShot.js";
 
 const VERSION = "0.8.2-lite.2";
 const DEFAULT_API_URL = "https://vibe-tree-leaderboard.melanthascherffmugutubu.workers.dev";
@@ -34,6 +35,12 @@ const STATIC_DIR = join(LITE_RUNTIME_DIR, "public");
 const BUNDLED_THEMES_DIR = join(LITE_RUNTIME_DIR, "themes");
 const DISABLE_SYNC = process.env.VIBE_TREE_LITE_DISABLE_SYNC === "1";
 const DISABLE_WATCHERS = process.env.VIBE_TREE_LITE_DISABLE_WATCHERS === "1";
+/**
+ * `--once` runs a single scan-and-sync pass and exits instead of serving the
+ * dashboard for the lifetime of the login session. The scheduled install uses
+ * it so the process is only alive for the few seconds an hourly pass takes.
+ */
+const ONE_SHOT = process.argv.includes("--once") || process.env.VIBE_TREE_LITE_ONCE === "1";
 const MAX_SYNC_RESPONSE_CHARS = 16 * 1024 * 1024;
 const csrfToken = randomBytes(24).toString("base64url");
 const store = new LiteStore(DATA_DIR);
@@ -99,6 +106,28 @@ store.onChange(() => {
 
 await acquireRuntimeLock();
 service.readAuth();
+
+if (ONE_SHOT) {
+  // A scheduled pass must not leave background timers behind: stop the sync
+  // scheduler before the sweep so the only work left is the explicit sync below.
+  service.stop();
+  const startedAt = Date.now();
+  const log = (message: string) => console.log(`[${new Date().toISOString()}] ${message}`);
+  const result = await runOneShot({
+    startWatchers,
+    closeWatchers,
+    scanWatchers: scanAllWatchers,
+    syncCloudTree: (options) => service.syncCloudTree(options),
+    syncUsage: (options) => service.syncUsage(options),
+    syncDisabled: DISABLE_SYNC,
+    invalidateLeaderboardCache: () => { leaderboardCache = undefined; },
+    log,
+  });
+  const imported = summarizeScan(watcherStatus).eventsImported;
+  console.log(`VIBE_TREE_LITE_ONCE_DONE ${JSON.stringify({ ...result, imported, elapsedMs: Date.now() - startedAt })}`);
+  process.exit(result.ok ? 0 : 1);
+}
+
 if (!DISABLE_WATCHERS) startWatchers();
 if (!DISABLE_SYNC) {
   service.startSync();
@@ -140,14 +169,16 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  const address = server.address();
-  const actualPort = typeof address === "object" && address ? address.port : PORT;
-  console.log(`VIBE_TREE_LITE_READY http://${HOST}:${actualPort}`);
-});
+if (!ONE_SHOT) {
+  server.listen(PORT, HOST, () => {
+    const address = server.address();
+    const actualPort = typeof address === "object" && address ? address.port : PORT;
+    console.log(`VIBE_TREE_LITE_READY http://${HOST}:${actualPort}`);
+  });
 
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => void shutdown(signal));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => void shutdown(signal));
+  }
 }
 process.on("exit", releaseRuntimeLock);
 
@@ -320,7 +351,9 @@ function startWatchers() {
 
 function handleUsage(event: UsageEvent) {
   store.appendUsageEvent(event);
-  if (DISABLE_SYNC) return;
+  // A scheduled one-shot run performs its uploads explicitly after the sweep.
+  // Re-arming the debounce here would only keep the process alive past its work.
+  if (DISABLE_SYNC || ONE_SHOT) return;
   service.scheduleCloudSyncSoon(15_000);
   if (usageSyncTimer) clearTimeout(usageSyncTimer);
   usageSyncTimer = setTimeout(() => {

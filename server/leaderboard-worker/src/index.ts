@@ -1248,7 +1248,11 @@ async function getSocialGroupLeaderboard(request: Request, env: Env, groupId: st
 async function getCloudTree(request: Request, env: Env) {
   const user = await requireAuth(request, env);
   await ensureCloudTreeTables(env);
-  return json(await cloudTreePayload(user.userId, env), env);
+  // A usage dashboard only needs the aggregate rows, and the full payload also
+  // carries up to 50k raw events. Omitting them keeps that read small without a
+  // second endpoint or a second shape to keep in sync.
+  const modelStatsOnly = new URL(request.url).searchParams.get("modelStatsOnly") === "1";
+  return json(await cloudTreePayload(user.userId, env, undefined, { modelStatsOnly }), env);
 }
 
 async function getCloudTreeDelta(request: Request, env: Env) {
@@ -1260,7 +1264,7 @@ async function getCloudTreeDelta(request: Request, env: Env) {
   return json(await cloudTreePayload(user.userId, env, since), env);
 }
 
-async function cloudTreePayload(userId: string, env: Env, since?: string) {
+async function cloudTreePayload(userId: string, env: Env, since?: string, options: { modelStatsOnly?: boolean } = {}) {
   const cursor = new Date().toISOString();
   const eventQuery = since
     ? `SELECT event_id AS id, device_id AS deviceId, created_at AS createdAt, source,
@@ -1300,13 +1304,18 @@ async function cloudTreePayload(userId: string, env: Env, since?: string) {
        WHERE user_id = ?
        ORDER BY date ASC, source ASC, model ASC
        LIMIT 5000`;
+  const emptyRows = { results: [] as Record<string, unknown>[] };
   const [eventRows, achievementRows, deviceRows, deviceTotalRows, modelStatRows] = await Promise.all([
-    env.DB.prepare(
-      eventQuery,
-    ).bind(...(since ? [userId, since, cursor] : [userId])).all<Record<string, unknown>>(),
-    env.DB.prepare(
-      achievementQuery,
-    ).bind(...(since ? [userId, since, cursor] : [userId])).all<Record<string, unknown>>(),
+    options.modelStatsOnly && !since
+      ? Promise.resolve(emptyRows)
+      : env.DB.prepare(
+          eventQuery,
+        ).bind(...(since ? [userId, since, cursor] : [userId])).all<Record<string, unknown>>(),
+    options.modelStatsOnly && !since
+      ? Promise.resolve(emptyRows)
+      : env.DB.prepare(
+          achievementQuery,
+        ).bind(...(since ? [userId, since, cursor] : [userId])).all<Record<string, unknown>>(),
     env.DB.prepare(
       `SELECT device_id AS deviceId, alias, platform, last_synced_at AS lastSyncedAt,
               app_version AS appVersion

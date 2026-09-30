@@ -74,6 +74,59 @@ The two actions are independent: **立即刷新** re-reads the local session roo
 while **立即同步** exchanges the cloud tree and leaderboard over the network.
 An idle refresh costs nothing, since a sweep with no new data performs no writes.
 
+## Scheduled one-shot mode
+
+A resident Lite process polls the session roots forever and keeps a timer per
+source, which is more than a device that only wants an hourly "read the totals
+and upload them" needs. `--once` performs exactly one pass and exits:
+
+```bash
+node dist/lite-server/lite/server.js --once     # or: npm run run:lite:once
+```
+
+One pass sweeps every enabled watcher, lets each watcher flush its per-file read
+position, runs one cloud sync and one leaderboard upload, prints a
+`VIBE_TREE_LITE_ONCE_DONE {...}` line with `ok`, and exits `0` (or `1` if a
+sweep or either upload failed). It never starts the dashboard server, and it
+does not arm the per-event upload debounce. Because the watcher state files keep
+their offsets, the next pass reads only what the session files appended since
+the previous one — a long gap costs more per pass but is never re-read.
+
+The whole pass is bounded by a hard timeout (15 minutes by default,
+`VIBE_TREE_LITE_ONESHOT_TIMEOUT_MS` to change it) so a stuck session tree cannot
+keep the process alive.
+
+On macOS, `--schedule` swaps the kept-alive service for a scheduled one:
+
+```bash
+npm run install:lite:mac -- --schedule                 # hourly, and once at login
+npm run install:lite:mac -- --schedule --interval 1800 # every 30 minutes
+npm run install:lite:mac                               # back to the resident dashboard
+```
+
+This writes `StartInterval` instead of `KeepAlive` into the LaunchAgent, so
+launchd starts the job and lets it exit; nothing polls between passes.
+`node scripts/install-lite-macos.mjs --schedule --print-plist` prints the exact
+LaunchAgent without touching launchd.
+
+On Windows, register the same command with Task Scheduler:
+
+```powershell
+schtasks /Create /TN VibeTreeLite.Hourly /SC HOURLY /MO 1 /F `
+  /TR "node \"$env:LOCALAPPDATA\VibeTreeLite\dist\vibe-tree-lite\lite\server.js\" --once"
+```
+
+Two things to know about a scheduled pass:
+
+- **launchd and Task Scheduler start the job with no login shell**, so proxy
+  environment variables exported by a shell profile are absent. The macOS
+  installer reads the current network proxy settings with `scutil --proxy` and
+  writes `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY` into the LaunchAgent; set those
+  environment variables in the scheduled task on Windows if the sync service is
+  not directly reachable.
+- Sleep does not accumulate missed runs. A wake-up runs the next pass on
+  schedule, and the offsets make that safe — it only delays discovery.
+
 ## macOS background service
 
 Quit Electron Vibe Tree first, then run:
@@ -118,17 +171,34 @@ removed; the Vibe Tree token data directory is still preserved.
 
 ## Second device
 
-1. Use the Windows/macOS installer above, or copy the output of
-   `npm run package:lite` to the second device.
-2. When running a copied package manually, run `node lite/server.js` from the
-   packaged `dist/vibe-tree-lite` directory.
-3. Open the local page and choose **使用 GitHub 登录**.
-4. Complete GitHub login in the browser. Lite reuses the original OAuth
-   callback and automatically joins an existing cloud tree or starts one from
-   the local data when the account has no remote tree yet.
+Install on the second machine with the same commands as the first:
 
-The packaged runtime has no npm dependencies and does not contain Electron or
-`node_modules`; it requires Node.js 22 or newer.
+```bash
+git clone git@github.com:bzbj/vibe-tree-lite.git
+cd vibe-tree-lite
+npm ci
+npm run install:lite:mac -- --schedule   # macOS hourly pass; omit --schedule for the resident dashboard
+# Windows: npm.cmd ci && powershell -File .\scripts\install-lite-windows.ps1
+```
+
+Then log in once so the device joins the same cloud tree:
+
+1. Open the local page (`npm run start:lite`) or the packaged runtime.
+2. Choose **使用 GitHub 登录** and complete GitHub login in the browser.
+3. Lite reuses the original OAuth callback and automatically joins an existing
+   cloud tree, or starts one from the local data when the account has no remote
+   tree yet. After that the scheduled pass uploads hourly without any UI.
+
+Each device uploads its own aggregate snapshot keyed by device id, so two
+machines contribute to the same tree without overwriting each other. The
+dashboard is not part of a scheduled install; read the shared numbers from
+<https://lab.linjunkai.com/vibe-tree/>, or run `npm run start:lite` on demand and
+close it again.
+
+To copy a package instead of cloning, use `npm run package:lite` and run
+`node lite/server.js` from the packaged `dist/vibe-tree-lite` directory (the
+packaged runtime has no npm dependencies, but it still requires Node.js 22 or
+newer).
 
 ## Theme packs
 
@@ -157,6 +227,9 @@ manifest and token contract.
 | `NODE_USE_ENV_PROXY` | Set to `1` by start/install scripts | Use standard proxy environment variables |
 | `VIBE_TREE_LITE_DISABLE_SYNC` | unset | `1` disables network sync for testing |
 | `VIBE_TREE_LITE_DISABLE_WATCHERS` | unset | `1` disables local watcher polling for testing |
+| `VIBE_TREE_LITE_ONCE` | unset | `1` runs one scan-and-sync pass and exits, same as `--once` |
+| `VIBE_TREE_LITE_ONESHOT_TIMEOUT_MS` | `900000` | Hard ceiling for one scheduled pass |
+| `VIBE_TREE_DASHBOARD_URL` | `https://lab.linjunkai.com/vibe-tree/` | Page opened by `npm run open:dashboard` |
 | `VIBE_DEEPSEEK_SESSIONS_DIR` | `$DSH_HOME/sessions` or `~/.dsh/sessions` | Override the DeepSeek Harness session root |
 | `VIBE_DEEPSEEK_IMPORT_HISTORY` | unset | `today` imports today's existing DeepSeek Harness usage instead of only new writes |
 

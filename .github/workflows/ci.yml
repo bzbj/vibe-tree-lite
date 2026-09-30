@@ -44,6 +44,9 @@ jobs:
       - name: On-demand scan endpoint fixture
         run: node scripts/test-scan-endpoint.mjs
 
+      - name: Scheduled one-shot pass fixture
+        run: node scripts/test-once-job.mjs
+
       - name: Source catalog migration fixture
         run: node scripts/test-source-migration.mjs
 
