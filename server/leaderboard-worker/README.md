@@ -39,6 +39,7 @@ The Worker rate-limit binding only supports 10-second or 60-second windows, so h
 ### Shared Tree Sync
 
 - `GET /api/tree` returns cloud tree events, achievements, device summaries, aggregate model stats, and a summary with `hasRemoteTree`.
+- `GET /api/tree?modelStatsOnly=1` returns the same payload without the raw event stream (events and achievements are empty). Use it for aggregate-only readers such as a usage dashboard, which then transfer the daily model totals instead of up to 50k events.
 - `POST /api/tree/events` upserts token events, refreshes the current device snapshot, and replaces that device's aggregate model stats when provided.
 - `POST /api/tree/achievements` upserts achievement unlock state.
 
