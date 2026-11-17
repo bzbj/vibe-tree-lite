@@ -4,11 +4,11 @@
 
 Vibe Tree reads the DeepSeek Harness session-persistence artifacts; it does not
 invoke the Harness runtime or upload prompts. The adapter accepts the released
-session format generations `0` and `3`. Both start with a `session` header
+session format generations `0`, `3`, and `4`. Both start with a `session` header
 followed by events in `{ type, seq, time, data }` envelopes. Generation `0`
 writes plain `session.jsonl` or concatenated independent Zstandard frames in
 `session.jsonl.zstd`; generation `3` (Harness `0.1.5-rc` and later) writes the
-versioned `session.v3.jsonl`/`session.v3.jsonl.zstd`. Generation `3` adds header
+versioned `session.v3.jsonl`/`session.v3.jsonl.zstd`. Generations `3` and `4` share the usage envelope. Generation `3` adds header
 fields such as `isSeeded`, `origin`, `parentSession`, and `delegationDepth`, and
 emits `session/end-seed` and `model/selection` events, while the step lifecycle,
 request route, and per-step usage envelopes this adapter reads are unchanged.
@@ -105,3 +105,11 @@ set `VIBE_DEEPSEEK_IMPORT_HISTORY=today`, start Vibe Tree, and run
 Wait for the watcher status/event count, restart Vibe Tree, and verify the same
 session is not duplicated. This command may consume model credits and should
 only be run when live Harness credentials are available.
+
+## Recovery after upgrading from a v0/v3-only reader
+
+The watcher automatically replays v4 artifacts whose saved byte cursor advanced
+without a recognized session header. Existing emitted IDs are preserved, and
+usage remains subject to the configured history boundary and inherited-seed
+filter. Successfully recognized files keep incremental cursors on later runs.
+Unknown generations remain excluded. No manual cursor deletion is required.

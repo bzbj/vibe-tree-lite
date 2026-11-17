@@ -230,6 +230,44 @@ try {
   assert(restartEvents[0].totalTokens === 41, "new session usage should be counted once");
   restarted.close();
 
+  // Reproduce the old reader's EOF cursor without a recognized v4 header.
+  // Test both raw and independently compressed frames, including inherited data.
+  const v4Root = join(root, "v4-sessions");
+  const v4Data = join(root, "v4-data");
+  mkdirSync(v4Root);
+  mkdirSync(v4Data);
+  const skipped = {};
+  for (const compressed of [false, true]) {
+    const filePath = join(v4Root, `session.v4.jsonl${compressed ? ".zstd" : ""}`);
+    const records = [
+      { type: "session", version: 4, id: `fixture-v4-${compressed}`, createdAt: now, isSeeded: true },
+      ...stepRecords(0, 0, now, 9000, 900, 1),
+      event("assistant/message", 2, now, { turn: 0, step: 0, usage: usage(9000, 900) }),
+      event("session/end-seed", 3, now, { inherited: true }),
+      event("step/end", 4, now, { turn: 0, step: 0 }),
+      event("step/start", 5, now, { turn: 1, step: 0 }),
+      event("request/context", 6, now, { provider: "deepseek-official", model: "deepseek-flash" }),
+      event("assistant/message", 7, now, { turn: 1, step: 0, message: { content: "private fixture text" }, usage: { ...usage(100, 20, 80, 5), totalTokens: 205 } }),
+      event("step/end", 8, now, { turn: 1, step: 0 }),
+    ];
+    const bytes = compressed ? Buffer.concat(records.map(r => frame([r]))) : Buffer.from(records.map(line).join(""));
+    writeFileSync(filePath, bytes);
+    skipped[filePath] = { encoding: compressed ? "zstd" : "raw", committedBytes: bytes.length, seedLength: 0, route: { provider: "deepseek-harness" } };
+  }
+  writeFileSync(join(v4Data, "deepseek-session-watcher.json"), JSON.stringify({ version: 1, historyStartAt: "2020-01-01T00:00:00.000Z", files: skipped, emitted: {} }));
+  const recovered = [];
+  const v4Options = { userDataPath: v4Data, sessionsRoot: v4Root, historyStartAt: "2020-01-01T00:00:00.000Z", onUsage: e => recovered.push(e) };
+  const recovery = startDeepSeekSessionWatcher(v4Options);
+  await recovery.scanNow();
+  recovery.close();
+  assert(recovered.length === 2, "v4 EOF cursors must recover local usage, excluding inherited usage");
+  assert(recovered.every(e => e.totalTokens === 120 && e.cacheReadTokens === 80 && e.cacheWriteTokens === 5 && e.model === "deepseek-flash"), "v4 must preserve disjoint token buckets and model");
+  assert(!JSON.stringify(recovered).includes("private fixture text"), "v4 accounting must exclude message content");
+  const recoveryRestart = startDeepSeekSessionWatcher(v4Options);
+  await recoveryRestart.scanNow();
+  recoveryRestart.close();
+  assert(recovered.length === 2, "v4 recovery must persist and deduplicate across restarts");
+
   const persistedState = JSON.parse(readFileSync(join(userDataPath, "deepseek-session-watcher.json"), "utf8"));
   assert(persistedState.version === 1 && Object.keys(persistedState.files).length === 5, "watcher state must persist every discovered artifact");
   console.log("deepseek session watcher fixture tests passed");

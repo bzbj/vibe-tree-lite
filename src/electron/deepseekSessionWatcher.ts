@@ -23,7 +23,7 @@ const ZSTD_MAGIC = 0xfd2fb528;
 const DEFAULT_PROVIDER = "deepseek-harness";
 // Session format generations whose JSONL envelope this adapter understands.
 const SESSION_VERSION_LEGACY = 0;
-const SESSION_VERSION_CURRENT = 3;
+const SESSION_VERSION_CURRENT = 4;
 // `session.jsonl` (generation 0) and `session.v<N>.jsonl` (later generations),
 // each optionally Zstandard-compressed.
 const SESSION_FILE_PATTERN = /^session(?:\.v\d+)?\.jsonl(?:\.zstd)?$/;
@@ -253,7 +253,10 @@ function scanFile(
     fileState.encoding !== encoding ||
     fileState.committedBytes > fileStat.size ||
     (fileState.fileIdentity && fileState.fileIdentity !== fileIdentity) ||
-    replacedInPlace
+    replacedInPlace ||
+    // Older readers consumed v4 bytes without recognizing the session header.
+    // Replay only those files; the global emitted IDs remain the dedup boundary.
+    (!fileState?.headerIdentity && Boolean(fileState?.committedBytes) && /session\.v4\.jsonl(?:\.zstd)?$/.test(filePath))
   ) {
     fileState = newFileState(encoding);
     state.files[filePath] = fileState;
@@ -451,10 +454,10 @@ function newFileState(encoding: "raw" | "zstd"): FileState {
 function parseSessionHeader(record: JsonRecord): SessionHeader | undefined {
   if (record.type !== "session" || typeof record.id !== "string" || !record.id.trim()) return undefined;
   const version = numberValue(record.version) ?? 0;
-  // Harness generation 0 keeps the original envelope and generation 3 reuses it
+  // Harness generation 0 keeps the original envelope and generations 3 and 4 reuse it
   // with versioned artifact names. Later unknown generations must stay ignored
   // rather than be counted with assumptions that may no longer hold.
-  if (version !== SESSION_VERSION_LEGACY && version !== SESSION_VERSION_CURRENT) return undefined;
+  if (version !== SESSION_VERSION_LEGACY && version !== 3 && version !== SESSION_VERSION_CURRENT) return undefined;
   const inherited = inheritsHistory(record);
   return {
     id: record.id,
