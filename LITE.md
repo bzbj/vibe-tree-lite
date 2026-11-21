@@ -99,13 +99,22 @@ keep the process alive.
 On macOS, `--schedule` swaps the kept-alive service for a scheduled one:
 
 ```bash
-npm run install:lite:mac -- --schedule                 # hourly, and once at login
-npm run install:lite:mac -- --schedule --interval 1800 # every 30 minutes
+npm run install:lite:mac -- --schedule                 # minute 00 of each local hour
+npm run install:lite:mac -- --schedule --interval 1800 # every 30 minutes, plus login
 npm run install:lite:mac                               # back to the resident dashboard
 ```
 
-This writes `StartInterval` instead of `KeepAlive` into the LaunchAgent, so
-launchd starts the job and lets it exit; nothing polls between passes.
+The default scheduled install writes `StartCalendarInterval` with `Minute=0`,
+`RunAtLoad=false`, and no `KeepAlive` or interval trigger. It waits for the next
+local clock hour; installing or logging in does not force an extra upload.
+An explicit `--interval` writes `StartInterval` and retains the login/immediate
+run for compatibility. Nothing polls between passes.
+
+Calendar times follow the Mac's system timezone. Sleep, shutdown, or network
+failures can delay completion; five minutes is a downstream collection buffer,
+not a guarantee that an upload has finished. For the Lab deployment the intended
+sequence is client scan/upload at `HH:00`, then server collection at `HH:05`
+(Asia/Singapore, UTC+8). The Lab server units are managed in `bzbj/lisahost-ops`.
 `node scripts/install-lite-macos.mjs --schedule --print-plist` prints the exact
 LaunchAgent without touching launchd.
 

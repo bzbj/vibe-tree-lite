@@ -96,3 +96,18 @@ jobs:
 
       - name: Test Lite
         run: npm run test:lite
+
+  lite-macos-schedule:
+    name: macOS installer schedule
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check calendar, interval and resident installs without side effects
+        run: npm run test:mac-schedule

@@ -16,11 +16,13 @@ const domain = `gui/${process.getuid()}`;
 /**
  * Default install keeps the dashboard resident, which is what the existing
  * LaunchAgent does. `--schedule` instead installs a non-resident pass: the job
- * wakes on login and then once per interval, scans, uploads and exits, so no
- * process is left polling session trees between runs.
+ * runs at the top of each local hour, scans, uploads and exits. An explicit
+ * --interval keeps the legacy interval-based schedule and login run.
  */
 const scheduled = process.argv.includes("--schedule");
-const intervalSeconds = scheduled ? numericArg("--interval", 3600, 60) : 0;
+const calendarScheduled = scheduled && !process.argv.includes("--interval");
+const intervalSeconds = scheduled && !calendarScheduled ? numericArg("--interval", 3600, 60) : 0;
+const printPlist = process.argv.includes("--print-plist");
 
 /**
  * launchd starts the job with no login shell, so the proxy variables a shell
@@ -53,17 +55,12 @@ const electronRunning = processList.stdout.split("\n").some((command) => (
   /^(?:\S*\/)?Vibe Tree\.app\/Contents\/MacOS\/Vibe Tree(?:\s|$)/.test(command.trim()) ||
   /^\S*Electron(?:\s+)\S*dist\/electron\/main\.js(?:\s|$)/.test(command.trim())
 ));
-if (electronRunning) {
+if (electronRunning && !printPlist) {
   throw new Error("Quit the Electron Vibe Tree app before installing Lite.");
 }
 
-disableElectronAutostart();
-
-mkdirSync(agentsDir, { recursive: true });
-mkdirSync(logsDir, { recursive: true });
-// A resident install is kept alive; a scheduled install is launched by launchd
-// once per interval and must not be restarted after it exits, which is why the
-// two modes differ in KeepAlive/StartInterval rather than in the program.
+// Scheduled passes exit naturally; launchd starts them at a calendar boundary
+// or at an explicitly requested interval. Resident mode remains kept alive.
 const proxyEnvironment = systemProxyEnvironment();
 const plistBody = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,8 +77,10 @@ ${scheduled ? `    <string>--once</string>\n` : ""}  </array>
   <dict>
     <key>NODE_USE_ENV_PROXY</key><string>1</string>
 ${proxyEnvironment.map(([key, value]) => `    <key>${key}</key><string>${xml(value)}</string>\n`).join("")}  </dict>
-  <key>RunAtLoad</key><true/>
-${scheduled
+  <key>RunAtLoad</key><${calendarScheduled ? "false" : "true"}/>
+${calendarScheduled
+  ? `  <key>StartCalendarInterval</key><dict><key>Minute</key><integer>0</integer></dict>\n`
+  : scheduled
   ? `  <key>StartInterval</key><integer>${intervalSeconds}</integer>\n`
   : `  <key>KeepAlive</key><true/>\n`}  <key>ProcessType</key><string>Background</string>
   <key>ThrottleInterval</key><integer>10</integer>
@@ -93,20 +92,23 @@ ${scheduled
 
 // `--print-plist` renders the exact LaunchAgent without touching launchd, so the
 // scheduled variant can be inspected (and diffed) before it is installed.
-if (process.argv.includes("--print-plist")) {
+if (printPlist) {
   console.log(plistBody);
   process.exit(0);
 }
 
+disableElectronAutostart();
 mkdirSync(agentsDir, { recursive: true });
 mkdirSync(logsDir, { recursive: true });
 writeFileSync(plist, plistBody);
 
 spawnSync("launchctl", ["bootout", `${domain}/${label}`], { stdio: "ignore" });
 run("launchctl", ["bootstrap", domain, plist]);
-run("launchctl", ["kickstart", "-k", `${domain}/${label}`]);
+if (!calendarScheduled) run("launchctl", ["kickstart", "-k", `${domain}/${label}`]);
 if (scheduled) {
-  console.log(`Vibe Tree Lite scheduled: one scan-and-sync pass every ${intervalSeconds}s, then exit.`);
+  console.log(calendarScheduled
+    ? "Vibe Tree Lite scheduled: one scan-and-sync pass at minute 00 of each local hour, then exit."
+    : `Vibe Tree Lite scheduled: one scan-and-sync pass every ${intervalSeconds}s and at login, then exit.`);
   console.log(`No dashboard server is running in this mode; run without --schedule to restore it.`);
 } else {
   console.log(`Vibe Tree Lite installed. Open http://127.0.0.1:47831`);
